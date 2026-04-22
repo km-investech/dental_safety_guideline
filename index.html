@@ -229,6 +229,11 @@ video { width: 100%; height: 100%; object-fit: cover; display: block; }
       <button class="chip" onclick="appendChip('osteoporosis')">골다공증</button>
       <button class="chip" onclick="appendChip('radiation')">방사선</button>
       <button class="chip" onclick="appendChip('MRONJ')">MRONJ</button>
+      <button class="chip" onclick="appendChip('hyperthyroid')">갑상선항진</button>
+      <button class="chip" onclick="appendChip('hypothyroid')">갑상선저하</button>
+      <button class="chip" onclick="appendChip('levothyroxine')">레보티록신</button>
+      <button class="chip" onclick="appendChip('metformin')">메트포르민</button>
+      <button class="chip" onclick="appendChip('BP 178/102')">혈압수치</button>
     </div>
     <div class="divider"></div>
     <button class="btn btn-primary" onclick="runText()">분석 시작</button>
@@ -313,6 +318,18 @@ video { width: 100%; height: 100%; object-fit: cover; display: block; }
         <div class="notes-label">항목별 주의사항</div>
         <div id="notesList"></div>
       </div>
+
+      <div class="notes-section" id="rxSection" style="display:none;">
+        <div class="divider" style="margin:14px 0 12px;"></div>
+        <div class="notes-label">💊 처방 지침</div>
+        <div id="rxList"></div>
+      </div>
+
+      <div class="notes-section" id="aneSection" style="display:none;">
+        <div class="divider" style="margin:14px 0 12px;"></div>
+        <div class="notes-label">💉 마취 주의사항</div>
+        <div id="aneList"></div>
+      </div>
     </div>
     <button class="reset-btn" onclick="resetResult()">초기화</button>
   </div>
@@ -386,44 +403,77 @@ function extract(text, regex) {
 function analyze(rawText) {
   const text = rawText.toLowerCase();
 
-  // 수치 추출
-  const inr = extract(text, /inr[^0-9]*([0-9.]+)/i);
-  const plt = extract(text, /(?:plt|platelet)[^0-9]*([0-9]+)/i);
-  const wbc = extract(text, /wbc[^0-9]*([0-9]+)/i);
+  // ── 수치 추출 ──
+  const inr   = extract(text, /inr[^0-9]*([0-9.]+)/i);
+  const plt   = extract(text, /(?:plt|platelet)[^0-9]*([0-9]+)/i);
+  const wbc   = extract(text, /wbc[^0-9]*([0-9]+)/i);
   const hba1c = extract(text, /hba1c[^0-9]*([0-9.]+)/i);
+  const egfr  = extract(text, /egfr[^0-9]*([0-9.]+)/i);
+  // 혈압: "BP 178/102" 또는 "수축기 182" 또는 "180/110"
+  const bpSys = extract(text, /(?:bp|sbp|수축기혈압|수축기)[^0-9]*([0-9]{2,3})/i)
+             || extract(text, /([0-9]{2,3})\/[0-9]{2,3}/);
+  const bpDia = extract(text, /(?:bp|dbp|이완기혈압|이완기)[^0-9]*[0-9]{2,3}\/([0-9]{2,3})/i)
+             || extract(text, /[0-9]{2,3}\/([0-9]{2,3})/);
+  // TSH / 갑상선 수치
+  const tsh   = extract(text, /tsh[^0-9]*([0-9.]+)/i);
+  const ft4   = extract(text, /(?:ft4|free t4)[^0-9]*([0-9.]+)/i);
 
-  // 약물 · 병력 플래그
+  // ── 약물명 → 질환 역추론 ──
+  // 당뇨 약물
+  const hasDMdrug     = /metformin|글리메피리드|glimepiride|글리피지드|glipizide|sitagliptin|자누비아|empagliflozin|엠파글리플로진|jardiance|자디앙|insulin|인슐린|gliclazide|아카보스|acarbose|dapagliflozin|다파글리플로진|포시가/.test(text);
+  // 고혈압 약물
+  const hasHTNdrug    = /amlodipine|암로디핀|losartan|로사르탄|valsartan|발사르탄|ramipril|라미프릴|lisinopril|리시노프릴|telmisartan|텔미사르탄|candesartan|칸데사르탄|olmesartan|올메사르탄|atenolol|아테놀롤|bisoprolol|비소프롤롤|carvedilol|카르베딜롤|nebivolol|nifedipine|니페디핀|hydrochlorothiazide|하이드로클로로치아자이드|indapamide|인다파미드/.test(text);
+  // 심부전 약물
+  const hasHFdrug     = /spironolactone|스피로노락톤|eplerenone|에플레레논|sacubitril|사쿠비트릴|entresto|엔트레스토|furosemide|푸로세미드|lasix|라식스|torsemide|토르세미드|digoxin|디곡신/.test(text);
+  // 심방세동 / 항부정맥
+  const hasAFdrug     = /amiodarone|아미오다론|dronedarone|드로네다론|flecainide|플레카이니드|propafenone|프로파페논/.test(text);
+  // 갑상선
+  const hasThyroidDrug = /levothyroxine|엘트록신|씬지로이드|synthroid|levothroid|티로나민|liothyronine|carbimazole|카르비마졸|propylthiouracil|ptu|메티마졸|methimazole/.test(text);
+  // 고지혈증 (역추론 보조)
+  const hasStatin     = /atorvastatin|아토르바스타틴|rosuvastatin|로수바스타틴|simvastatin|심바스타틴|pitavastatin|피타바스타틴|pravastatin|프라바스타틴/.test(text);
+  // 신장 약물
+  const hasCKDdrug    = /erythropoietin|에리스로포이에틴|epo|darbepoetin|다르베포이에틴|sevelamer|세벨라머|lanthanum|란타눔|calcium carbonate|탄산칼슘|cinacalcet|시나칼셋/.test(text);
+  // 골다공증 약물
+  const hasBP         = /bisphosphonate|zoledronate|졸레드론산|alendronate|알렌드론산|risedronate|리세드론산|ibandronate|이반드론산|비스포스포네이트|포사맥스|악토넬|본비바/.test(text);
+  // 갑상선 기능 항진/저하 상태 추론
+  const hasHyperthyroid = /hyperthyroid|갑상선기능항진|graves|그레이브스|thyrotoxicosis|갑상선중독/.test(text)
+    || (tsh !== null && tsh < 0.1)
+    || /carbimazole|카르비마졸|propylthiouracil|ptu|메티마졸|methimazole/.test(text);
+  const hasHypothyroid  = /hypothyroid|갑상선기능저하|hashimoto|하시모토/.test(text)
+    || (tsh !== null && tsh > 10)
+    || /levothyroxine|엘트록신|씬지로이드/.test(text);
+
+  // ── 약물 기반 질환 역추론으로 플래그 보강 ──
+  const hasDM      = /\bdm\b|diabetes|당뇨/.test(text) || hasDMdrug;
+  const hasHTN     = /hypertension|고혈압|\bhtn\b/.test(text) || hasHTNdrug
+    || (bpSys !== null && bpSys >= 140) || (bpDia !== null && bpDia >= 90);
+  const hasHF      = /heart failure|심부전|cardiac failure/.test(text) || hasHFdrug;
+  const hasAF      = /\baf\b|atrial fibrillation|심방세동/.test(text) || hasAFdrug;
+  const hasCKD     = /\bckd\b|chronic kidney|신부전|만성신장/.test(text) || hasCKDdrug
+    || (egfr !== null && egfr < 60);
+  const hasOsteo   = /osteoporosis|골다공증/.test(text) || (hasBP && !hasChemo);
+
+  // ── 혈압 심각도 ──
+  const bpCrisis   = (bpSys !== null && bpSys >= 180) || (bpDia !== null && bpDia >= 110);
+  const bpHigh     = !bpCrisis && ((bpSys !== null && bpSys >= 160) || (bpDia !== null && bpDia >= 100));
+
+  // ── 기존 직접 플래그 (약물 역추론 미해당) ──
   const hasAspirin    = /aspirin|아스피린/.test(text);
   const hasPlavix     = /plavix|clopidogrel|클로피도그렐/.test(text);
   const hasWarfarin   = /warfarin|와파린/.test(text);
   const hasNOAC       = /apixaban|rivaroxaban|dabigatran|edoxaban|엘리퀴스|자렐토/.test(text);
-  const hasDM         = /\bdm\b|diabetes|당뇨/.test(text);
-  // 심혈관
   const hasStent      = /stent|스텐트/.test(text);
   const hasMI         = /\bmi\b|심근경색|myocardial infarction/.test(text);
-  const hasHF         = /heart failure|심부전|cardiac failure/.test(text);
-  const hasAF         = /\baf\b|atrial fibrillation|심방세동/.test(text);
-  const hasHTN        = /hypertension|고혈압|\bhtn\b/.test(text);
-  // 신장
-  const hasCKD        = /\bckd\b|chronic kidney|신부전|만성신장/.test(text);
   const hasDialysis   = /dialysis|투석|혈액투석|복막투석/.test(text);
   const hasKidneyTx   = /kidney transplant|신장이식|renal transplant/.test(text);
-  // 간
-  const hasLiver      = /liver|간경화|cirrhosis|hepatic/.test(text);
-  // 골대사 · 약물관련 악골괴사
-  const hasBP         = /bisphosphonate|zoledronate|alendronate|risedronate|ibandronate|비스포스포네이트|포사맥스|악토넬/.test(text);
+  const hasLiver      = /liver disease|간경화|cirrhosis|hepatic failure|간부전/.test(text);
   const hasDenosumab  = /denosumab|프롤리아|xgeva|엑스지바/.test(text);
-  const hasSunitinib  = /sunitinib|sorafenib|bevacizumab|antiangiogenic|항혈관신생/.test(text); // MRONJ 위험 약물
-  const hasMRONJ      = /mronj|bronj|약물관련 악골괴사|bisphosphonate related osteonecrosis/.test(text); // 이미 진단된 경우
-  const hasOsteo      = /osteoporosis|골다공증/.test(text);
-  // 방사선·종양
-  const hasRadiation  = /radiation|방사선|osti\b|osteoradionecrosis|방사선골괴사/.test(text);
+  const hasSunitinib  = /sunitinib|sorafenib|bevacizumab|antiangiogenic|항혈관신생/.test(text);
+  const hasMRONJ      = /mronj|bronj|약물관련 악골괴사/.test(text);
+  const hasRadiation  = /radiation|방사선치료|osteoradionecrosis/.test(text);
   const hasORN        = /\born\b|osteoradionecrosis|방사선골괴사/.test(text);
-  // 면역
   const hasImmunosupp = /steroid|tacrolimus|mycophenolate|cyclosporine|면역억제|azathioprine/.test(text);
-  const hasChemo      = /chemotherapy|항암|chemo/.test(text);
-  // 기타
-  const hasHTNdrug    = /amlodipine|losartan|ramipril|고혈압약|antihypertensive/.test(text);
+  const hasChemo      = /chemotherapy|항암치료|chemo/.test(text);
 
   // ── 위험도 판단 근거 수집 ──
   const reasons = []; // { label, level: 'danger'|'warning'|'info' }
@@ -461,6 +511,15 @@ function analyze(rawText) {
   if (hasLiver)      reasons.push({ label: '간경화', level: 'danger' });
   if (hasImmunosupp) reasons.push({ label: '면역억제', level: 'warning' });
   if (hasChemo)      reasons.push({ label: '항암치료', level: 'danger' });
+  if (bpCrisis)       reasons.push({ label: 'BP ' + bpSys + '/' + bpDia + ' 위기', level: 'danger' });
+  else if (bpHigh)    reasons.push({ label: 'BP ' + bpSys + '/' + bpDia + ' 높음', level: 'warning' });
+  else if (hasHTN && bpSys === null) reasons.push({ label: '고혈압', level: 'info' });
+  if (hasHyperthyroid) reasons.push({ label: '갑상선기능항진', level: 'danger' });
+  if (hasHypothyroid)  reasons.push({ label: '갑상선기능저하', level: 'info' });
+  if (hasDMdrug && !(/\bdm\b|diabetes|당뇨/.test(text))) reasons.push({ label: '당뇨약 복용', level: 'info' });
+  if (hasHTNdrug && !(/hypertension|고혈압|\bhtn\b/.test(text)) && bpSys === null) reasons.push({ label: '혈압약 복용', level: 'info' });
+  if (hasHFdrug && !(/heart failure|심부전/.test(text))) reasons.push({ label: '심부전약 복용', level: 'info' });
+  if (hasStatin) reasons.push({ label: '스타틴', level: 'info' });
 
   // ── 전체 출혈 위험도 ──
   let bleedRisk = '낮음';
@@ -477,6 +536,9 @@ function analyze(rawText) {
     hasCKD || hasKidneyTx || hasHF || hasImmunosupp
   ) bleedRisk = '중등도';
 
+  // 혈압 위기: 시술 연기 별도 플래그
+  const deferByBP = bpCrisis; // >= 180/110
+
   // ── 약물 조절 ──
   let drugAdj = '없음';
   if (hasWarfarin) drugAdj = 'INR 기준 판단';
@@ -485,7 +547,7 @@ function analyze(rawText) {
   else if (hasAspirin || hasPlavix) drugAdj = '유지 (지혈 주의)';
 
   // ── 시술별 판단 ──
-  const flags = { inr, plt, wbc, hba1c, hasAspirin, hasPlavix, hasWarfarin, hasNOAC, hasDM, hasStent, hasMI, hasHF, hasAF, hasCKD, hasDialysis, hasKidneyTx, hasLiver, hasBP, hasDenosumab, hasSunitinib, hasMRONJ, hasOsteo, hasRadiation, hasORN, hasImmunosupp, hasChemo };
+  const flags = { inr, plt, wbc, hba1c, egfr, bpSys, bpDia, bpCrisis, bpHigh, tsh, ft4, hasAspirin, hasPlavix, hasWarfarin, hasNOAC, hasDM, hasDMdrug, hasHTN, hasHTNdrug, bpCrisis, bpHigh, hasHF, hasHFdrug, hasAF, hasAFdrug, hasStent, hasMI, hasCKD, hasCKDdrug, hasDialysis, hasKidneyTx, hasLiver, hasBP, hasDenosumab, hasSunitinib, hasMRONJ, hasOsteo, hasRadiation, hasORN, hasImmunosupp, hasChemo, hasHyperthyroid, hasHypothyroid, hasThyroidDrug, hasStatin };
   const procJudge = {
     '발치':     judgeExtraction(flags),
     '임플란트': judgeImplant(flags),
@@ -494,12 +556,16 @@ function analyze(rawText) {
 
   // ── 주의사항 노트 ──
   const notes = buildNotes(flags);
+  const rxNotes = buildRx(flags);
+  const aneNotes = buildAnesthesia(flags);
 
-  renderResult(bleedRisk, drugAdj, procJudge, reasons, notes);
+  renderResult(bleedRisk, drugAdj, procJudge, reasons, notes, rxNotes, aneNotes);
 }
 
 function judgeExtraction(f) {
-  const { inr, plt, wbc, hasWarfarin, hasNOAC, hasAspirin, hasPlavix, hasLiver, hasCKD, hasDialysis, hasKidneyTx, hasRadiation, hasORN, hasMRONJ, hasBP, hasDenosumab, hasSunitinib, hasChemo, hasImmunosupp, hasHF } = f;
+  const { inr, plt, wbc, hasWarfarin, hasNOAC, hasAspirin, hasPlavix, hasLiver, hasCKD, hasDialysis, hasKidneyTx, hasRadiation, hasORN, hasMRONJ, hasBP, hasDenosumab, hasSunitinib, hasChemo, hasImmunosupp, hasHF, bpCrisis, hasHyperthyroid } = f;
+  if (bpCrisis) return { v: 'defer', msg: '혈압 위기 — 시술 금지' };
+  if (hasHyperthyroid) return { v: 'caution', msg: '갑상선항진 — 에피네프린 주의' };
   // 절대 금기
   if (hasORN || hasMRONJ) return { v: 'defer', msg: 'ORN/MRONJ — 전문의 의뢰' };
   if (hasRadiation) return { v: 'defer', msg: 'ORNI 위험 — 원칙적 금기' };
@@ -517,7 +583,8 @@ function judgeExtraction(f) {
 }
 
 function judgeImplant(f) {
-  const { inr, plt, wbc, hasWarfarin, hasNOAC, hasAspirin, hasPlavix, hasLiver, hasCKD, hasDialysis, hasKidneyTx, hasRadiation, hasORN, hasMRONJ, hasBP, hasDenosumab, hasSunitinib, hasChemo, hasImmunosupp, hasOsteo, hasDM, hba1c, hasHF } = f;
+  const { inr, plt, wbc, hasWarfarin, hasNOAC, hasAspirin, hasPlavix, hasLiver, hasCKD, hasDialysis, hasKidneyTx, hasRadiation, hasORN, hasMRONJ, hasBP, hasDenosumab, hasSunitinib, hasChemo, hasImmunosupp, hasOsteo, hasDM, hba1c, hasHF, bpCrisis } = f;
+  if (bpCrisis) return { v: 'defer', msg: '혈압 위기 — 시술 금지' };
   // 절대 금기
   if (hasORN || hasMRONJ) return { v: 'defer', msg: 'MRONJ/ORN — 절대 금기' };
   if (hasRadiation) return { v: 'defer', msg: 'ORNI 위험 — 절대 금기' };
@@ -537,7 +604,8 @@ function judgeImplant(f) {
 }
 
 function judgeRoutine(f) {
-  const { inr, plt, wbc, hasLiver, hasCKD, hasDialysis, hasChemo, hasImmunosupp, hasHTN } = f;
+  const { inr, plt, wbc, hasLiver, hasCKD, hasDialysis, hasChemo, hasImmunosupp, hasHTN, bpCrisis } = f;
+  if (bpCrisis) return { v: 'caution', msg: '혈압 조절 후 진행' };
   if (hasChemo || (wbc && wbc < 1500)) return { v: 'caution', msg: '감염 위험 — 항생제 고려' };
   if (hasLiver || hasDialysis) return { v: 'caution', msg: '지혈·감염 주의' };
   if ((inr && inr > 3.5) || (plt && plt < 50000)) return { v: 'caution', msg: '지혈 주의' };
@@ -545,7 +613,7 @@ function judgeRoutine(f) {
 }
 
 function buildNotes(f) {
-  const { inr, plt, wbc, hba1c, hasAspirin, hasPlavix, hasWarfarin, hasNOAC, hasDM, hasStent, hasMI, hasHF, hasAF, hasCKD, hasDialysis, hasKidneyTx, hasLiver, hasBP, hasDenosumab, hasSunitinib, hasMRONJ, hasOsteo, hasRadiation, hasORN, hasImmunosupp, hasChemo } = f;
+  const { inr, plt, wbc, hba1c, egfr, bpSys, bpDia, bpCrisis, bpHigh, tsh, hasAspirin, hasPlavix, hasWarfarin, hasNOAC, hasDM, hasDMdrug, hasHTN, hasHTNdrug, hasHF, hasHFdrug, hasAF, hasAFdrug, hasStent, hasMI, hasCKD, hasCKDdrug, hasDialysis, hasKidneyTx, hasLiver, hasBP, hasDenosumab, hasSunitinib, hasMRONJ, hasOsteo, hasRadiation, hasORN, hasImmunosupp, hasChemo, hasHyperthyroid, hasHypothyroid, hasThyroidDrug, hasStatin } = f;
   const n = [];
 
   // 혈액수치
@@ -608,10 +676,178 @@ function buildNotes(f) {
   if (hasSunitinib) n.push({ text: '항혈관신생 치료제 복용 — MRONJ 위험 인자', sub: '베바시주맙·수니티닙 등: 골수 혈류 감소로 악골괴사 유발 가능. 발치·임플란트 신중 결정', level: 'warning' });
   if (hasOsteo && !hasBP && !hasDenosumab) n.push({ text: '골다공증 — 임플란트 골유착 저하 가능', sub: '골밀도 검사(DEXA) 확인 권장. 약물 복용 여부(비스포스포네이트·데노수맙) 반드시 확인', level: 'info' });
 
+  // 혈압
+  if (bpCrisis) n.push({ text: '혈압 위기 (' + bpSys + '/' + bpDia + 'mmHg) — 시술 즉시 금지', sub: '수축기 ≥180 또는 이완기 ≥110: 응급 혈압 조절 후 재평가. 필요 시 응급실 의뢰
+혈압 안정화 확인 후 시술 예약 재조정', level: 'danger' });
+  else if (bpHigh) n.push({ text: '혈압 높음 (' + bpSys + '/' + bpDia + 'mmHg) — 에피네프린 최소화', sub: '수축기 160–180: 시술 가능하나 에피네프린 1카트리지(1.8mL) 이하 권장
+시술 중 혈압·심박수 모니터링 권장. 진정 요법 고려', level: 'warning' });
+  else if (hasHTN && bpSys !== null) n.push({ text: '고혈압 — 혈압 조절 양호 (' + bpSys + '/' + bpDia + 'mmHg)', sub: '에피네프린 2카트리지 이하 사용 권장. 시술 전 혈압 재측정', level: 'info' });
+  else if (hasHTN || hasHTNdrug) n.push({ text: '고혈압 (or 혈압약 복용) — 시술 전 혈압 측정 필수', sub: '수치 미확인 시 측정 후 진행. 수축기 180 이상이면 연기', level: 'warning' });
+
+  // 갑상선
+  if (hasHyperthyroid) n.push({ text: '갑상선 기능 항진 — 에피네프린 금기 또는 극소량', sub: '에피네프린 → 심계항진·고혈압 위기·갑상선 폭풍 위험
+에피네프린 없는 마취제(메피바카인 3%) 사용 권장
+갑상선 조절 중인지 확인 — 미조절 상태면 응급 외 시술 연기' + (tsh !== null ? ' (TSH ' + tsh + ')' : ''), level: 'danger' });
+  if (hasHypothyroid) n.push({ text: '갑상선 기능 저하 — 약물 대사 저하 주의', sub: '진정제·마취제 감수성 증가. 창상 치유 약간 지연 가능
+미조절 중증 갑상선저하: 저혈압·서맥 위험 — 갑상선 호르몬 보충 상태 확인' + (tsh !== null ? ' (TSH ' + tsh + ')' : ''), level: 'info' });
+
+  // 스타틴 (약물상호작용 안내)
+  if (hasStatin) n.push({ text: '스타틴 복용 — 일부 항생제와 상호작용', sub: '클라리스로마이신·에리트로마이신 병용 시 스타틴 혈중 농도 상승(근육독성 위험) → 아목시실린·클린다마이신 선택 권장', level: 'info' });
+
+  // 약물 역추론 결과 안내 (진단명 없이 약물만 입력된 경우)
+  const inferred = [];
+  if (hasDMdrug && !(/dm|diabetes|당뇨/.test(Object.keys(f).join(' ')))) inferred.push('당뇨(혈당약)');
+  if (hasHTNdrug && bpSys === null && !(/hypertension|고혈압|htn/.test(Object.keys(f).join(' ')))) inferred.push('고혈압(혈압약)');
+  if (hasHFdrug && !(/heart failure|심부전/.test(Object.keys(f).join(' ')))) inferred.push('심부전(이뇨제·강심제)');
+  if (hasAFdrug && !(/atrial fibrillation|심방세동/.test(Object.keys(f).join(' ')))) inferred.push('심방세동 가능(항부정맥제)');
+  if (hasCKDdrug && !(/ckd|신부전/.test(Object.keys(f).join(' ')))) inferred.push('만성신장질환(신장약)');
+  if (hasThyroidDrug && !hasHyperthyroid && !hasHypothyroid) inferred.push('갑상선질환(갑상선약)');
+  if (inferred.length > 0) {
+    n.push({ text: '약물 기반 질환 역추론: ' + inferred.join(', '), sub: '처방약에서 추정된 기저질환입니다. 진단명 직접 입력 시 더 정확한 분석이 가능합니다', level: 'info' });
+  }
+
   return n;
 }
 
-function renderResult(bleedRisk, drugAdj, procJudge, reasons, notes) {
+function buildRx(f) {
+  const { inr, hasWarfarin, hasNOAC, hasAspirin, hasPlavix, hasDM, hasCKD, hasDialysis, hasKidneyTx, hasLiver, hasChemo, hasImmunosupp, hasHF, hasHTN, hasHTNdrug, wbc, hasHyperthyroid, hasHypothyroid, hasThyroidDrug, hasStatin, bpCrisis } = f;
+  const rx = [];
+
+  // 진통제
+  const nsaidsOk = !hasCKD && !hasDialysis && !hasKidneyTx && !hasLiver;
+  if (hasCKD || hasDialysis || hasKidneyTx) {
+    rx.push({ cat: '진통제', text: 'NSAIDs (이부프로펜·케토롤락) 금기', sub: '아세트아미노펜(타이레놀) 우선 선택. 신기능 저하 환자는 아세트아미노펜도 3g/일 이하로 제한', level: 'danger' });
+  } else if (hasLiver) {
+    rx.push({ cat: '진통제', text: 'NSAIDs 주의, 아세트아미노펜 감량 사용', sub: '간경화 시 아세트아미노펜 2g/일 이하. 케토롤락 등 COX 억제제는 간 혈류 감소 위험', level: 'warning' });
+  } else if (hasHF) {
+    rx.push({ cat: '진통제', text: 'NSAIDs 심부전 악화 위험 — 사용 최소화', sub: '나트륨 저류·부종 악화 가능. 아세트아미노펜 우선, 단기 저용량 NSAIDs 불가피 시 주치의 확인', level: 'warning' });
+  } else {
+    rx.push({ cat: '진통제', text: '아세트아미노펜 또는 단기 NSAIDs 처방 가능', sub: '이부프로펜 400mg × 3회, 5일 이내. 위장 보호제 병용 권장', level: 'info' });
+  }
+
+  // 항생제
+  const abxNeeded = hasImmunosupp || hasChemo || hasDialysis || hasKidneyTx || (wbc !== null && wbc < 2000);
+  if (hasDialysis) {
+    rx.push({ cat: '항생제', text: '아목시실린 용량 조절 필요 (투석 환자)', sub: '아목시실린 250–500mg 1일 1회 (투석 후). 클린다마이신: 일반 용량 가능하나 중증 감염 시 신장 전문의 확인', level: 'warning' });
+  } else if (hasCKD || hasKidneyTx) {
+    rx.push({ cat: '항생제', text: '아목시실린 감량 또는 간격 연장 고려', sub: 'eGFR 10–30: 500mg q12h / eGFR <10: 500mg q24h. 메트로니다졸은 일반 용량 가능', level: 'warning' });
+  } else if (abxNeeded) {
+    rx.push({ cat: '항생제', text: '예방적 항생제 적극 고려', sub: '아목시실린 2g 시술 1시간 전 (또는 클린다마이신 600mg 페니실린 알레르기 시)', level: 'warning' });
+  } else {
+    rx.push({ cat: '항생제', text: '일반 처방 가능 (적응증에 따라)', sub: '아목시실린 500mg × 3회 × 5일 또는 클린다마이신 300mg × 3회', level: 'info' });
+  }
+
+  // 스테로이드 (술후 부종 억제)
+  if (hasDialysis || hasCKD) {
+    rx.push({ cat: '스테로이드', text: '덱사메타손 처방 시 신중 — 면역 저하·감염 위험', sub: '필요 시 최소 용량 단기간 사용. 전신 투여 보다 국소 적용 우선', level: 'warning' });
+  } else if (hasDM) {
+    rx.push({ cat: '스테로이드', text: '덱사메타손 사용 시 혈당 상승 주의', sub: '임플란트 후 부종 억제 목적 사용 시 당일~익일 혈당 모니터링 권장', level: 'warning' });
+  }
+
+  // 와파린 상호작용
+  if (hasWarfarin) {
+    rx.push({ cat: '약물상호작용', text: '와파린 복용 환자 — 항생제·진통제 상호작용 주의', sub: '메트로니다졸·플루코나졸: INR 현저히 상승 → 가급적 회피
+아목시실린: INR 소폭 영향 가능 → 복용 후 INR 재확인 권장
+NSAIDs: 출혈 위험 상가 → 아세트아미노펜으로 대체', level: 'danger' });
+  }
+  if (hasNOAC) {
+    rx.push({ cat: '약물상호작용', text: 'NOAC 복용 환자 — 일부 항생제 혈중농도 영향', sub: '클라리스로마이신·플루코나졸: NOAC 혈중 농도 상승 → 사용 주의
+아목시실린·클린다마이신: 비교적 안전', level: 'warning' });
+  }
+
+  // 간경화
+  if (hasLiver) {
+    rx.push({ cat: '약물대사', text: '간경화 — 간 대사 약물 축적 위험', sub: '코데인·트라마돌 금기 (뇌병증 위험). 벤조디아제핀 최소화. 아세트아미노펜 2g/일 이하', level: 'danger' });
+  }
+
+  // 갑상선
+  if (hasHyperthyroid) {
+    rx.push({ cat: '갑상선 항진', text: '항갑상선제 복용 중 — 골수 억제 가능성 (agranulocytosis)', sub: 'PTU·메티마졸 복용 환자: WBC 감소 가능. 발치 전 WBC 확인 권장\n항생제 처방 시 감염 징후 면밀히 관찰', level: 'warning' });
+  }
+  if (hasHypothyroid) {
+    rx.push({ cat: '갑상선 저하', text: '갑상선 호르몬제 복용 환자 — 일부 약물 흡수 영향', sub: '항생제(특히 칼슘 제제 동반 시) 레보티록신 흡수 방해 가능\n진통제·진정제 효과 증강 경향 — 용량 보수적으로', level: 'info' });
+  }
+
+  // 혈압약 복용 환자
+  if (hasHTNdrug || hasHTN) {
+    rx.push({ cat: '혈압약 상호작용', text: '고혈압 약물 복용 — NSAIDs 혈압 상승 가능', sub: 'NSAIDs가 항고혈압제 효과를 약화시킬 수 있음\n특히 ACE억제제(라미프릴 등) + NSAIDs: 신기능 악화 가능\n아세트아미노펜 우선 처방 권장', level: 'warning' });
+  }
+
+  return rx;
+}
+
+function buildAnesthesia(f) {
+  const { hasHTN, hasHTNdrug, hasHF, hasMI, hasStent, hasAF, hasDM, hasCKD, hasDialysis, hasKidneyTx, hasLiver, hasChemo, hasImmunosupp, hasAspirin, hasPlavix, hasWarfarin, hasNOAC, inr, bpSys, bpDia, bpCrisis, bpHigh, hasHyperthyroid, hasHypothyroid, tsh } = f;
+  const ane = [];
+
+  // 국소마취제 기본 지침
+  ane.push({ cat: '기본 원칙', text: '리도카인 1:100,000 에피네프린 — 표준 선택', sub: '1.8mL 카트리지 기준 에피네프린 18μg 함유. 심혈관계 안정 환자: 최대 3–4카트리지(5.4–7.2mg 리도카인) 허용', level: 'info' });
+
+  // 고혈압·심혈관
+  if (hasHTN || hasHF || hasMI || hasStent || hasAF) {
+    ane.push({ cat: '심혈관', text: '에피네프린 사용량 제한 — 최대 2카트리지(0.04mg)', sub: '심혈관 질환자: 에피네프린 0.04mg(2카트리지) 이하 권장
+흡인(aspiration) 후 천천히 주입 필수 — 혈관 내 주입 시 빈맥·혈압 급상승 위험
+느린 심박수(베타차단제 복용) 환자: 에피네프린 역설적 혈압 상승 주의', level: 'warning' });
+    if (hasHF) {
+      ane.push({ cat: '심부전', text: '앙와위 자세 주의 — 좌위 또는 반좌위 유지', sub: '심부전 환자 완전 눕힘 시 호흡 곤란 악화 가능. 시술 중 산소포화도 모니터링 권장', level: 'warning' });
+    }
+  }
+
+  // 고혈압 약물
+  if (hasHTN) {
+    ane.push({ cat: '고혈압', text: '시술 전 혈압 측정 필수', sub: '수축기 180mmHg 이상 또는 이완기 110mmHg 이상: 선택적 시술 연기
+수축기 160–180: 에피네프린 최소화하고 신중 진행
+칼슘채널차단제 복용자: 잇몸 비대 확인', level: 'warning' });
+  }
+
+  // 당뇨
+  if (hasDM) {
+    ane.push({ cat: '당뇨', text: '에피네프린 — 혈당 일시 상승 가능', sub: '혈당 조절 불량 시(공복혈당 >200) 에피네프린 함량 최소화 고려
+시술 전 음식 섭취 여부 확인 (공복 저혈당 예방)', level: 'warning' });
+  }
+
+  // 신장
+  if (hasDialysis) {
+    ane.push({ cat: '투석', text: '리도카인 대사물 축적 주의', sub: '투석 환자: 리도카인 정상 대사 가능하나 반복 주입 시 축적 위험
+최소 유효 용량 사용. 아티카인(articaine) 대안 가능', level: 'warning' });
+  } else if (hasCKD) {
+    ane.push({ cat: '신장질환', text: '리도카인 용량 보수적으로 사용', sub: 'eGFR 감소 시 대사물 배설 지연 가능. 에피네프린은 신혈류 감소 우려로 최소화 권장', level: 'warning' });
+  }
+
+  // 간
+  if (hasLiver) {
+    ane.push({ cat: '간경화', text: '리도카인 대사 저하 — 용량 감량', sub: '간에서 대사되는 아미드계 마취제(리도카인·아티카인) 축적 위험
+최소 유효 용량, 투여 간격 충분히 유지. Child-Pugh C: 절반 용량 시작', level: 'danger' });
+  }
+
+  // 항응고·항혈소판
+  if (hasWarfarin || hasNOAC || (hasAspirin && hasPlavix)) {
+    ane.push({ cat: '출혈 예방', text: '마취 주사 후 압박 지혈 — 충분한 시간 확보', sub: '하치조신경 차단마취: 혈종 형성 위험이 높으므로 흡인 필수, 주입 속도 낮춤
+협측 침윤마취 우선 고려 (혈종 위험 낮음)
+마취 후 5분 이상 거즈 압박', level: 'warning' });
+  }
+
+  // 혈압 수치 기반 마취 조정
+  if (bpCrisis) {
+    ane.push({ cat: '혈압 위기', text: '시술 금지 — 마취 시작 불가', sub: '수축기 ≥180 또는 이완기 ≥110mmHg: 혈압 조절 후 재내원', level: 'danger' });
+  } else if (bpHigh) {
+    ane.push({ cat: '혈압 높음', text: '에피네프린 1카트리지(1.8mL) 이하 권장', sub: '수축기 160–180: 주입 전 흡인 필수. 60초/카트리지 천천히 주입', level: 'warning' });
+  }
+
+  // 갑상선
+  if (hasHyperthyroid) {
+    ane.push({ cat: '갑상선 기능 항진', text: '에피네프린 금기 — 메피바카인 3% 사용', sub: '에피네프린 → 심계항진·혈압 급상승·갑상선 폭풍 위험\n메피바카인 3%: 에피네프린 無, 작용시간 20–40분, 총량 최대 400mg 주의' + (tsh !== null ? ' (TSH ' + tsh + ')' : ''), level: 'danger' });
+  } else {
+    ane.push({ cat: '에피네프린 주의', text: '에피네프린 금기 상황 확인', sub: '갑상선항진·크롬친화세포종: 금기 → 메피바카인 3%\n코카인 복용 24h 이내: 절대 금기 / 삼환계항우울제: 1카트리지 이하', level: 'info' });
+  }
+  if (hasHypothyroid) {
+    ane.push({ cat: '갑상선 기능 저하', text: '마취제·진정제 감수성 증가 — 저용량 시작', sub: '중증 미조절 시 저혈압·서맥 위험. 에피네프린 포함 마취제 신중 사용' + (tsh !== null ? ' (TSH ' + tsh + ')' : ''), level: 'info' });
+  }
+
+  return ane;
+}
+
+function renderResult(bleedRisk, drugAdj, procJudge, reasons, notes, rxNotes, aneNotes) {
   hideProgress();
 
   const riskMap = {
@@ -669,6 +905,24 @@ function renderResult(bleedRisk, drugAdj, procJudge, reasons, notes) {
         </div>
       </div>`).join('');
   }
+
+  // 처방 지침
+  function renderSideList(items, sectionId, listId) {
+    const sec = document.getElementById(sectionId);
+    const lst = document.getElementById(listId);
+    if (!items || items.length === 0) { sec.style.display = 'none'; return; }
+    sec.style.display = 'block';
+    lst.innerHTML = items.map(item => `
+      <div class="note-item">
+        <div class="note-dot dot-${item.level}"></div>
+        <div>
+          <div><span style="font-size:11px;font-weight:600;color:var(--text-muted);margin-right:6px;">[${item.cat}]</span>${item.text}</div>
+          ${item.sub ? '<div class="note-sub">' + item.sub.replace(/\n/g, '<br>') + '</div>' : ''}
+        </div>
+      </div>`).join('');
+  }
+  renderSideList(rxNotes,  'rxSection',  'rxList');
+  renderSideList(aneNotes, 'aneSection', 'aneList');
 
   const card = document.getElementById('resultCard');
   card.classList.add('show');
