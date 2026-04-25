@@ -500,7 +500,7 @@ function analyze(rawText) {
   if (hasORN)        reasons.push({ label: 'ORN 기왕력', level: 'danger' });
   else if (hasRadiation) reasons.push({ label: '방사선치료력', level: 'danger' });
   if (hasOsteo)      reasons.push({ label: '골다공증', level: 'info' });
-  if (hasDM)         reasons.push({ label: '당뇨', level: 'info' });
+  if (hasDM)         reasons.push({ label: hasDMdrug && !/\bdm\b|diabetes|당뇨/.test(text) ? '당뇨(약물추론)' : '당뇨', level: 'info' });
   if (hasStent)      reasons.push({ label: '스텐트', level: 'warning' });
   if (hasMI)         reasons.push({ label: '심근경색', level: 'warning' });
   if (hasAF)         reasons.push({ label: '심방세동', level: 'warning' });
@@ -536,8 +536,6 @@ function analyze(rawText) {
     hasCKD || hasKidneyTx || hasHF || hasImmunosupp
   ) bleedRisk = '중등도';
 
-  // 혈압 위기: 시술 연기 별도 플래그
-  const deferByBP = bpCrisis; // >= 180/110
 
   // ── 약물 조절 ──
   let drugAdj = '없음';
@@ -547,7 +545,7 @@ function analyze(rawText) {
   else if (hasAspirin || hasPlavix) drugAdj = '유지 (지혈 주의)';
 
   // ── 시술별 판단 ──
-  const flags = { inr, plt, wbc, hba1c, egfr, bpSys, bpDia, bpCrisis, bpHigh, tsh, ft4, hasAspirin, hasPlavix, hasWarfarin, hasNOAC, hasDM, hasDMdrug, hasHTN, hasHTNdrug, bpCrisis, bpHigh, hasHF, hasHFdrug, hasAF, hasAFdrug, hasStent, hasMI, hasCKD, hasCKDdrug, hasDialysis, hasKidneyTx, hasLiver, hasBP, hasDenosumab, hasSunitinib, hasMRONJ, hasOsteo, hasRadiation, hasORN, hasImmunosupp, hasChemo, hasHyperthyroid, hasHypothyroid, hasThyroidDrug, hasStatin };
+  const flags = { inr, plt, wbc, hba1c, egfr, bpSys, bpDia, bpCrisis, bpHigh, tsh, ft4, hasAspirin, hasPlavix, hasWarfarin, hasNOAC, hasDM, hasDMdrug, hasHTN, hasHTNdrug, hasHF, hasHFdrug, hasAF, hasAFdrug, hasStent, hasMI, hasCKD, hasCKDdrug, hasDialysis, hasKidneyTx, hasLiver, hasBP, hasDenosumab, hasSunitinib, hasMRONJ, hasOsteo, hasRadiation, hasORN, hasImmunosupp, hasChemo, hasHyperthyroid, hasHypothyroid, hasThyroidDrug, hasStatin };
   const procJudge = {
     '발치':     judgeExtraction(flags),
     '임플란트': judgeImplant(flags),
@@ -677,33 +675,28 @@ function buildNotes(f) {
   if (hasOsteo && !hasBP && !hasDenosumab) n.push({ text: '골다공증 — 임플란트 골유착 저하 가능', sub: '골밀도 검사(DEXA) 확인 권장. 약물 복용 여부(비스포스포네이트·데노수맙) 반드시 확인', level: 'info' });
 
   // 혈압
-  if (bpCrisis) n.push({ text: '혈압 위기 (' + bpSys + '/' + bpDia + 'mmHg) — 시술 즉시 금지', sub: '수축기 ≥180 또는 이완기 ≥110: 응급 혈압 조절 후 재평가. 필요 시 응급실 의뢰
-혈압 안정화 확인 후 시술 예약 재조정', level: 'danger' });
-  else if (bpHigh) n.push({ text: '혈압 높음 (' + bpSys + '/' + bpDia + 'mmHg) — 에피네프린 최소화', sub: '수축기 160–180: 시술 가능하나 에피네프린 1카트리지(1.8mL) 이하 권장
-시술 중 혈압·심박수 모니터링 권장. 진정 요법 고려', level: 'warning' });
+  if (bpCrisis) n.push({ text: '혈압 위기 (' + bpSys + '/' + bpDia + 'mmHg) — 시술 즉시 금지', sub: '수축기 ≥180 또는 이완기 ≥110: 응급 혈압 조절 후 재평가. 필요 시 응급실 의뢰\n혈압 안정화 확인 후 시술 예약 재조정', level: 'danger' });
+  else if (bpHigh) n.push({ text: '혈압 높음 (' + bpSys + '/' + bpDia + 'mmHg) — 에피네프린 최소화', sub: '수축기 160–180: 시술 가능하나 에피네프린 1카트리지(1.8mL) 이하 권장\n시술 중 혈압·심박수 모니터링 권장. 진정 요법 고려', level: 'warning' });
   else if (hasHTN && bpSys !== null) n.push({ text: '고혈압 — 혈압 조절 양호 (' + bpSys + '/' + bpDia + 'mmHg)', sub: '에피네프린 2카트리지 이하 사용 권장. 시술 전 혈압 재측정', level: 'info' });
   else if (hasHTN || hasHTNdrug) n.push({ text: '고혈압 (or 혈압약 복용) — 시술 전 혈압 측정 필수', sub: '수치 미확인 시 측정 후 진행. 수축기 180 이상이면 연기', level: 'warning' });
 
   // 갑상선
-  if (hasHyperthyroid) n.push({ text: '갑상선 기능 항진 — 에피네프린 금기 또는 극소량', sub: '에피네프린 → 심계항진·고혈압 위기·갑상선 폭풍 위험
-에피네프린 없는 마취제(메피바카인 3%) 사용 권장
-갑상선 조절 중인지 확인 — 미조절 상태면 응급 외 시술 연기' + (tsh !== null ? ' (TSH ' + tsh + ')' : ''), level: 'danger' });
-  if (hasHypothyroid) n.push({ text: '갑상선 기능 저하 — 약물 대사 저하 주의', sub: '진정제·마취제 감수성 증가. 창상 치유 약간 지연 가능
-미조절 중증 갑상선저하: 저혈압·서맥 위험 — 갑상선 호르몬 보충 상태 확인' + (tsh !== null ? ' (TSH ' + tsh + ')' : ''), level: 'info' });
+  if (hasHyperthyroid) n.push({ text: '갑상선 기능 항진 — 에피네프린 금기 또는 극소량', sub: '에피네프린 → 심계항진·고혈압 위기·갑상선 폭풍 위험\n에피네프린 없는 마취제(메피바카인 3%) 사용 권장\n갑상선 조절 중인지 확인 — 미조절 상태면 응급 외 시술 연기' + (tsh !== null ? ' (TSH ' + tsh + ')' : ''), level: 'danger' });
+  if (hasHypothyroid) n.push({ text: '갑상선 기능 저하 — 약물 대사 저하 주의', sub: '진정제·마취제 감수성 증가. 창상 치유 약간 지연 가능\n미조절 중증 갑상선저하: 저혈압·서맥 위험 — 갑상선 호르몬 보충 상태 확인' + (tsh !== null ? ' (TSH ' + tsh + ')' : ''), level: 'info' });
 
   // 스타틴 (약물상호작용 안내)
   if (hasStatin) n.push({ text: '스타틴 복용 — 일부 항생제와 상호작용', sub: '클라리스로마이신·에리트로마이신 병용 시 스타틴 혈중 농도 상승(근육독성 위험) → 아목시실린·클린다마이신 선택 권장', level: 'info' });
 
-  // 약물 역추론 결과 안내 (진단명 없이 약물만 입력된 경우)
-  const inferred = [];
-  if (hasDMdrug && !(/dm|diabetes|당뇨/.test(Object.keys(f).join(' ')))) inferred.push('당뇨(혈당약)');
-  if (hasHTNdrug && bpSys === null && !(/hypertension|고혈압|htn/.test(Object.keys(f).join(' ')))) inferred.push('고혈압(혈압약)');
-  if (hasHFdrug && !(/heart failure|심부전/.test(Object.keys(f).join(' ')))) inferred.push('심부전(이뇨제·강심제)');
-  if (hasAFdrug && !(/atrial fibrillation|심방세동/.test(Object.keys(f).join(' ')))) inferred.push('심방세동 가능(항부정맥제)');
-  if (hasCKDdrug && !(/ckd|신부전/.test(Object.keys(f).join(' ')))) inferred.push('만성신장질환(신장약)');
-  if (hasThyroidDrug && !hasHyperthyroid && !hasHypothyroid) inferred.push('갑상선질환(갑상선약)');
-  if (inferred.length > 0) {
-    n.push({ text: '약물 기반 질환 역추론: ' + inferred.join(', '), sub: '처방약에서 추정된 기저질환입니다. 진단명 직접 입력 시 더 정확한 분석이 가능합니다', level: 'info' });
+  // 약물 역추론 결과 안내
+  const inferredList = [];
+  if (hasDMdrug && !hasDM) inferredList.push('당뇨 가능(혈당약)');
+  if (hasHTNdrug && !hasHTN && bpSys === null) inferredList.push('고혈압 가능(혈압약)');
+  if (hasHFdrug && !hasHF) inferredList.push('심부전 가능(이뇨제·강심제)');
+  if (hasAFdrug && !hasAF) inferredList.push('심방세동 가능(항부정맥제)');
+  if (hasCKDdrug && !hasCKD) inferredList.push('만성신장질환 가능(신장약)');
+  if (hasThyroidDrug && !hasHyperthyroid && !hasHypothyroid) inferredList.push('갑상선질환(갑상선약)');
+  if (inferredList.length > 0) {
+    n.push({ text: '약물 기반 질환 역추론: ' + inferredList.join(', '), sub: '처방약에서 추정된 기저질환입니다. 진단명 직접 입력 시 더 정확한 분석이 가능합니다', level: 'info' });
   }
 
   return n;
@@ -746,13 +739,10 @@ function buildRx(f) {
 
   // 와파린 상호작용
   if (hasWarfarin) {
-    rx.push({ cat: '약물상호작용', text: '와파린 복용 환자 — 항생제·진통제 상호작용 주의', sub: '메트로니다졸·플루코나졸: INR 현저히 상승 → 가급적 회피
-아목시실린: INR 소폭 영향 가능 → 복용 후 INR 재확인 권장
-NSAIDs: 출혈 위험 상가 → 아세트아미노펜으로 대체', level: 'danger' });
+    rx.push({ cat: '약물상호작용', text: '와파린 복용 환자 — 항생제·진통제 상호작용 주의', sub: '메트로니다졸·플루코나졸: INR 현저히 상승 → 가급적 회피\n아목시실린: INR 소폭 영향 가능 → 복용 후 INR 재확인 권장\nNSAIDs: 출혈 위험 상가 → 아세트아미노펜으로 대체', level: 'danger' });
   }
   if (hasNOAC) {
-    rx.push({ cat: '약물상호작용', text: 'NOAC 복용 환자 — 일부 항생제 혈중농도 영향', sub: '클라리스로마이신·플루코나졸: NOAC 혈중 농도 상승 → 사용 주의
-아목시실린·클린다마이신: 비교적 안전', level: 'warning' });
+    rx.push({ cat: '약물상호작용', text: 'NOAC 복용 환자 — 일부 항생제 혈중농도 영향', sub: '클라리스로마이신·플루코나졸: NOAC 혈중 농도 상승 → 사용 주의\n아목시실린·클린다마이신: 비교적 안전', level: 'warning' });
   }
 
   // 간경화
@@ -785,9 +775,7 @@ function buildAnesthesia(f) {
 
   // 고혈압·심혈관
   if (hasHTN || hasHF || hasMI || hasStent || hasAF) {
-    ane.push({ cat: '심혈관', text: '에피네프린 사용량 제한 — 최대 2카트리지(0.04mg)', sub: '심혈관 질환자: 에피네프린 0.04mg(2카트리지) 이하 권장
-흡인(aspiration) 후 천천히 주입 필수 — 혈관 내 주입 시 빈맥·혈압 급상승 위험
-느린 심박수(베타차단제 복용) 환자: 에피네프린 역설적 혈압 상승 주의', level: 'warning' });
+    ane.push({ cat: '심혈관', text: '에피네프린 사용량 제한 — 최대 2카트리지(0.04mg)', sub: '심혈관 질환자: 에피네프린 0.04mg(2카트리지) 이하 권장\n흡인(aspiration) 후 천천히 주입 필수 — 혈관 내 주입 시 빈맥·혈압 급상승 위험\n느린 심박수(베타차단제 복용) 환자: 에피네프린 역설적 혈압 상승 주의', level: 'warning' });
     if (hasHF) {
       ane.push({ cat: '심부전', text: '앙와위 자세 주의 — 좌위 또는 반좌위 유지', sub: '심부전 환자 완전 눕힘 시 호흡 곤란 악화 가능. 시술 중 산소포화도 모니터링 권장', level: 'warning' });
     }
@@ -795,36 +783,29 @@ function buildAnesthesia(f) {
 
   // 고혈압 약물
   if (hasHTN) {
-    ane.push({ cat: '고혈압', text: '시술 전 혈압 측정 필수', sub: '수축기 180mmHg 이상 또는 이완기 110mmHg 이상: 선택적 시술 연기
-수축기 160–180: 에피네프린 최소화하고 신중 진행
-칼슘채널차단제 복용자: 잇몸 비대 확인', level: 'warning' });
+    ane.push({ cat: '고혈압', text: '시술 전 혈압 측정 필수', sub: '수축기 180mmHg 이상 또는 이완기 110mmHg 이상: 선택적 시술 연기\n수축기 160–180: 에피네프린 최소화하고 신중 진행\n칼슘채널차단제 복용자: 잇몸 비대 확인', level: 'warning' });
   }
 
   // 당뇨
   if (hasDM) {
-    ane.push({ cat: '당뇨', text: '에피네프린 — 혈당 일시 상승 가능', sub: '혈당 조절 불량 시(공복혈당 >200) 에피네프린 함량 최소화 고려
-시술 전 음식 섭취 여부 확인 (공복 저혈당 예방)', level: 'warning' });
+    ane.push({ cat: '당뇨', text: '에피네프린 — 혈당 일시 상승 가능', sub: '혈당 조절 불량 시(공복혈당 >200) 에피네프린 함량 최소화 고려\n시술 전 음식 섭취 여부 확인 (공복 저혈당 예방)', level: 'warning' });
   }
 
   // 신장
   if (hasDialysis) {
-    ane.push({ cat: '투석', text: '리도카인 대사물 축적 주의', sub: '투석 환자: 리도카인 정상 대사 가능하나 반복 주입 시 축적 위험
-최소 유효 용량 사용. 아티카인(articaine) 대안 가능', level: 'warning' });
+    ane.push({ cat: '투석', text: '리도카인 대사물 축적 주의', sub: '투석 환자: 리도카인 정상 대사 가능하나 반복 주입 시 축적 위험\n최소 유효 용량 사용. 아티카인(articaine) 대안 가능', level: 'warning' });
   } else if (hasCKD) {
     ane.push({ cat: '신장질환', text: '리도카인 용량 보수적으로 사용', sub: 'eGFR 감소 시 대사물 배설 지연 가능. 에피네프린은 신혈류 감소 우려로 최소화 권장', level: 'warning' });
   }
 
   // 간
   if (hasLiver) {
-    ane.push({ cat: '간경화', text: '리도카인 대사 저하 — 용량 감량', sub: '간에서 대사되는 아미드계 마취제(리도카인·아티카인) 축적 위험
-최소 유효 용량, 투여 간격 충분히 유지. Child-Pugh C: 절반 용량 시작', level: 'danger' });
+    ane.push({ cat: '간경화', text: '리도카인 대사 저하 — 용량 감량', sub: '간에서 대사되는 아미드계 마취제(리도카인·아티카인) 축적 위험\n최소 유효 용량, 투여 간격 충분히 유지. Child-Pugh C: 절반 용량 시작', level: 'danger' });
   }
 
   // 항응고·항혈소판
   if (hasWarfarin || hasNOAC || (hasAspirin && hasPlavix)) {
-    ane.push({ cat: '출혈 예방', text: '마취 주사 후 압박 지혈 — 충분한 시간 확보', sub: '하치조신경 차단마취: 혈종 형성 위험이 높으므로 흡인 필수, 주입 속도 낮춤
-협측 침윤마취 우선 고려 (혈종 위험 낮음)
-마취 후 5분 이상 거즈 압박', level: 'warning' });
+    ane.push({ cat: '출혈 예방', text: '마취 주사 후 압박 지혈 — 충분한 시간 확보', sub: '하치조신경 차단마취: 혈종 형성 위험이 높으므로 흡인 필수, 주입 속도 낮춤\n협측 침윤마취 우선 고려 (혈종 위험 낮음)\n마취 후 5분 이상 거즈 압박', level: 'warning' });
   }
 
   // 혈압 수치 기반 마취 조정
