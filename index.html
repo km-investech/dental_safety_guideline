@@ -36,7 +36,7 @@ body { font-family: 'Noto Sans KR', -apple-system, sans-serif; background: var(-
 
 /* 시술 선택 */
 .section-label { font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px; }
-.proc-bar { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 16px; }
+.proc-bar { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 16px; }
 .proc-btn {
   padding: 11px 6px;
   border: 1.5px solid var(--border);
@@ -164,6 +164,18 @@ video { width: 100%; height: 100%; object-fit: cover; display: block; }
 
 .reset-btn { margin-top: 12px; width: 100%; padding: 10px; border: none; background: none; font-family: inherit; font-size: 13px; color: var(--text-muted); cursor: pointer; border-radius: var(--radius-sm); transition: color 0.12s; }
 .reset-btn:hover { color: var(--danger); }
+
+/* 처방 약물 패널 */
+.rx-panel { display:none; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:20px; margin-bottom:16px; }
+.rx-panel.active { display:block; }
+.rx-cat-label { font-size:11px; font-weight:600; color:var(--text-muted); letter-spacing:0.06em; text-transform:uppercase; margin:12px 0 6px; }
+.rx-chip-row { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:4px; }
+.rx-chip { padding:5px 12px; font-size:12px; font-weight:500; background:var(--bg); color:var(--text-secondary); border:1.5px solid var(--border); border-radius:20px; cursor:pointer; font-family:inherit; transition:all 0.15s; }
+.rx-chip:hover { border-color:var(--accent); color:var(--accent); background:var(--accent-light); }
+.rx-chip.selected { background:var(--accent); color:#fff; border-color:var(--accent); }
+.rx-drug-tags { display:flex; flex-wrap:wrap; gap:5px; min-height:28px; }
+.rx-drug-tag { padding:3px 10px; border-radius:20px; font-size:12px; font-weight:500; background:var(--accent-light); border:1px solid #c7d9ff; color:var(--accent); }
+
 </style>
 </head>
 <body>
@@ -177,23 +189,17 @@ video { width: 100%; height: 100%; object-fit: cover; display: block; }
   <!-- 시술 선택 -->
   <div class="section-label">시술 선택</div>
   <div class="proc-bar">
-    <button class="proc-btn active" id="proc-발치" onclick="selectProc('발치', this)">
+    <button class="proc-btn active" id="proc-발치임플란트" onclick="selectProc('발치임플란트', this)">
       <span class="picon">🦷</span>
-      발치
-      <span class="psub">단순 · 외과적</span>
+      발치 / 임플란트
+      <span class="psub">외과적 시술</span>
     </button>
-    <button class="proc-btn" id="proc-임플란트" onclick="selectProc('임플란트', this)">
-      <span class="picon">🔩</span>
-      임플란트
-      <span class="psub">식립 · 골이식</span>
-    </button>
-    <button class="proc-btn" id="proc-일반치료" onclick="selectProc('일반치료', this)">
-      <span class="picon">🔧</span>
-      일반치료
-      <span class="psub">충치 · 스케일링</span>
+    <button class="proc-btn" id="proc-약처방" onclick="selectProc('약처방', this)">
+      <span class="picon">📋</span>
+      약처방
+      <span class="psub">항생제 · 진통제</span>
     </button>
   </div>
-
   <!-- 입력 탭 -->
   <div class="tab-bar">
     <button class="tab-btn active" onclick="switchTab('text', this)">
@@ -267,6 +273,61 @@ video { width: 100%; height: 100%; object-fit: cover; display: block; }
     </div>
   </div>
 
+  <!-- 약처방 패널 -->
+  <div class="rx-panel" id="rxPanel">
+    <div class="panel-title">처방 약물 선택 <span style="font-size:11px;font-weight:400;color:var(--text-muted);">— 복수 선택 가능</span></div>
+
+    <div class="rx-cat-label">항생제</div>
+    <div class="rx-chip-row">
+      <button class="rx-chip" onclick="toggleDrug(this,'amoxicillin','아목시실린')">아목시실린</button>
+      <button class="rx-chip" onclick="toggleDrug(this,'cefaclor','세파클러')">세파클러</button>
+      <button class="rx-chip" onclick="toggleDrug(this,'cefdinir','세프디니르')">세프디니르</button>
+      <button class="rx-chip" onclick="toggleDrug(this,'clindamycin','클린다마이신')">클린다마이신</button>
+      <button class="rx-chip" onclick="toggleDrug(this,'metronidazole','메트로니다졸')">메트로니다졸</button>
+      <button class="rx-chip" onclick="toggleDrug(this,'amoxicillin_clav','아목시실린-클라불라네이트')">아목시실린-클라불라네이트</button>
+      <button class="rx-chip" onclick="toggleDrug(this,'azithromycin','아지트로마이신')">아지트로마이신</button>
+    </div>
+
+    <div class="rx-cat-label">진통제 / 소염제</div>
+    <div class="rx-chip-row">
+      <button class="rx-chip" onclick="toggleDrug(this,'ibuprofen','이부프로펜')">이부프로펜</button>
+      <button class="rx-chip" onclick="toggleDrug(this,'acetaminophen','아세트아미노펜')">아세트아미노펜</button>
+      <button class="rx-chip" onclick="toggleDrug(this,'ketorolac','케토롤락')">케토롤락</button>
+      <button class="rx-chip" onclick="toggleDrug(this,'naproxen','나프록센')">나프록센</button>
+      <button class="rx-chip" onclick="toggleDrug(this,'celecoxib','셀레콕시브')">셀레콕시브(COX-2)</button>
+      <button class="rx-chip" onclick="toggleDrug(this,'tramadol','트라마돌')">트라마돌</button>
+    </div>
+
+    <div class="rx-cat-label">스테로이드</div>
+    <div class="rx-chip-row">
+      <button class="rx-chip" onclick="toggleDrug(this,'dexamethasone','덱사메타손')">덱사메타손</button>
+      <button class="rx-chip" onclick="toggleDrug(this,'prednisolone','프레드니솔론')">프레드니솔론</button>
+      <button class="rx-chip" onclick="toggleDrug(this,'methylprednisolone','메틸프레드니솔론')">메틸프레드니솔론</button>
+    </div>
+
+    <div class="rx-cat-label">근이완제</div>
+    <div class="rx-chip-row">
+      <button class="rx-chip" onclick="toggleDrug(this,'eperisone','에페리손')">에페리손</button>
+      <button class="rx-chip" onclick="toggleDrug(this,'chlorzoxazone','클로르족사존')">클로르족사존</button>
+      <button class="rx-chip" onclick="toggleDrug(this,'cyclobenzaprine','사이클로벤자프린')">사이클로벤자프린</button>
+      <button class="rx-chip" onclick="toggleDrug(this,'baclofen','바클로펜')">바클로펜</button>
+    </div>
+
+    <div class="rx-cat-label">기타</div>
+    <div class="rx-chip-row">
+      <button class="rx-chip" onclick="toggleDrug(this,'antacid','위장보호제(PPI/H2)')">위장보호제</button>
+      <button class="rx-chip" onclick="toggleDrug(this,'chlorhexidine','클로르헥시딘 가글')">클로르헥시딘</button>
+      <button class="rx-chip" onclick="toggleDrug(this,'vitamin_c','비타민C')">비타민C</button>
+      <button class="rx-chip" onclick="toggleDrug(this,'tranexamic','트라넥삼산')">트라넥삼산</button>
+    </div>
+
+    <div class="divider"></div>
+    <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">선택된 약물</div>
+    <div class="rx-drug-tags" id="rxDrugTags"><span style="font-size:12px;color:var(--text-muted);">약물을 선택해주세요</span></div>
+    <div class="divider"></div>
+    <button class="btn btn-primary" id="rxCheckBtn" onclick="runRxCheck()" disabled>금기 · 주의사항 확인</button>
+  </div>
+
   <!-- OCR 오류 박스 -->
   <div id="ocrError" style="display:none; background:#fef2f2; border:1.5px solid #fca5a5; border-radius:12px; padding:16px 20px; margin-bottom:12px;">
     <div style="display:flex; align-items:flex-start; gap:12px;">
@@ -308,21 +369,16 @@ video { width: 100%; height: 100%; object-fit: cover; display: block; }
 
       <!-- 시술별 판단 -->
       <div class="notes-label" style="margin-bottom:10px;">시술별 판단</div>
-      <div class="proc-results">
-        <div class="proc-result-box" id="pr-발치">
-          <div class="proc-result-name">🦷 발치</div>
-          <div class="proc-result-verdict" id="pv-발치">—</div>
-          <div style="font-size:10px;color:var(--text-muted);margin-top:3px;" id="pm-발치"></div>
+      <div class="proc-results" id="procResultsAll" style="grid-template-columns:1fr 1fr;">
+        <div class="proc-result-box" id="pr-발치임플란트">
+          <div class="proc-result-name">🦷 발치 / 임플란트</div>
+          <div class="proc-result-verdict" id="pv-발치임플란트">—</div>
+          <div style="font-size:10px;color:var(--text-muted);margin-top:3px;" id="pm-발치임플란트"></div>
         </div>
-        <div class="proc-result-box" id="pr-임플란트">
-          <div class="proc-result-name">🔩 임플란트</div>
-          <div class="proc-result-verdict" id="pv-임플란트">—</div>
-          <div style="font-size:10px;color:var(--text-muted);margin-top:3px;" id="pm-임플란트"></div>
-        </div>
-        <div class="proc-result-box" id="pr-일반치료">
-          <div class="proc-result-name">🔧 일반치료</div>
-          <div class="proc-result-verdict" id="pv-일반치료">—</div>
-          <div style="font-size:10px;color:var(--text-muted);margin-top:3px;" id="pm-일반치료"></div>
+        <div class="proc-result-box" id="pr-약처방">
+          <div class="proc-result-name">📋 약처방</div>
+          <div class="proc-result-verdict" id="pv-약처방">—</div>
+          <div style="font-size:10px;color:var(--text-muted);margin-top:3px;" id="pm-약처방"></div>
         </div>
       </div>
 
@@ -361,12 +417,212 @@ video { width: 100%; height: 100%; object-fit: cover; display: block; }
 
 <script>
 let camStream = null;
-let selectedProc = '발치';
+let selectedProc = '발치임플란트';
+
+// ── 처방 약물 개별 선택 ──
+let selectedDrugs = new Map(); // key -> label
+
+function toggleDrug(el, key, label) {
+  if (selectedDrugs.has(key)) {
+    selectedDrugs.delete(key);
+    el.classList.remove('selected');
+  } else {
+    selectedDrugs.set(key, label);
+    el.classList.add('selected');
+  }
+  updateRxDrugTags();
+}
+
+function updateRxDrugTags() {
+  const tags = document.getElementById('rxDrugTags');
+  const btn = document.getElementById('rxCheckBtn');
+  if (selectedDrugs.size === 0) {
+    tags.innerHTML = '<span style="font-size:12px;color:var(--text-muted);">약물을 선택해주세요</span>';
+    btn.disabled = true;
+    return;
+  }
+  tags.innerHTML = [...selectedDrugs.values()].map(d => '<span class="rx-drug-tag">' + d + '</span>').join('');
+  btn.disabled = false;
+}
+
+function runRxCheck() {
+  if (selectedDrugs.size === 0) return;
+  if (!window._lastFlags) {
+    alert('먼저 환자 정보를 분석해주세요.');
+    return;
+  }
+  checkRxAgainstConditions(selectedDrugs);
+}
+
+
+// ── 처방 세트 × 전신질환 교차 분석 ──
+function checkRxAgainstConditions(drugKeys) {
+  // We need the last analyzed flags — store them globally
+  if (!window._lastFlags) {
+    alert('먼저 환자 정보를 분석해주세요 (텍스트/파일/촬영 입력 후 분석)');
+    return;
+  }
+  const f = window._lastFlags;
+  const issues = []; // { drug, condition, level, msg, sub }
+  const nsaids = drugKeys.has('ibuprofen') || drugKeys.has('ketorolac') || drugKeys.has('naproxen');
+  const hasCOX2 = drugKeys.has('celecoxib');
+  const hasMetronidazole = drugKeys.has('metronidazole');
+  const hasAmoxicillin = drugKeys.has('amoxicillin') || drugKeys.has('amoxicillin_clav');
+  const hasClindamycin = drugKeys.has('clindamycin');
+  const hasAcetaminophen = drugKeys.has('acetaminophen');
+  const hasDexamethasone = drugKeys.has('dexamethasone') || drugKeys.has('prednisolone') || drugKeys.has('methylprednisolone');
+  const hasTramadol = drugKeys.has('tramadol');
+  const hasMuscleRelax = drugKeys.has('eperisone') || drugKeys.has('chlorzoxazone') || drugKeys.has('cyclobenzaprine') || drugKeys.has('baclofen');
+  const hasTranexamic = drugKeys.has('tranexamic');
+  const hasAzithromycin = drugKeys.has('azithromycin');
+  const hasCefaclor = drugKeys.has('cefaclor') || drugKeys.has('cefdinir');
+
+  // ── NSAIDs 교차 ──
+  if (nsaids) {
+    if (f.hasDialysis || f.hasKidneyTx) issues.push({ drug:'이부프로펜/케토롤락', condition:'신장질환', level:'danger', msg:'NSAIDs 금기', sub:'투석·이식 환자: NSAIDs 절대 금기 → 아세트아미노펜으로 변경' });
+    else if (f.hasCKD) issues.push({ drug:'이부프로펜/케토롤락', condition:'CKD', level:'danger', msg:'NSAIDs 신기능 악화', sub:'eGFR<30 금기, eGFR 30-60 신중 사용 → 아세트아미노펜 우선' });
+    if (f.hasLiver) issues.push({ drug:'이부프로펜/케토롤락', condition:'간경화', level:'warning', msg:'NSAIDs 간 혈류 감소', sub:'간경화 시 COX억제제 → 간신증후군 위험. 아세트아미노펜 2g/일 이하로 대체' });
+    if (f.hasHF) issues.push({ drug:'이부프로펜/케토롤락', condition:'심부전', level:'warning', msg:'NSAIDs 심부전 악화', sub:'나트륨 저류·부종 악화. 아세트아미노펜 대체' });
+    if (f.hasWarfarin || f.hasNOAC) issues.push({ drug:'이부프로펜/케토롤락', condition:'항응고제', level:'danger', msg:'출혈 위험 급증', sub:'NSAIDs + 항응고제 = 위장관 출혈 위험 3–5배. 반드시 아세트아미노펜으로 대체' });
+    if (f.hasAspirin && f.hasPlavix) issues.push({ drug:'이부프로펜/케토롤락', condition:'이중항혈소판', level:'danger', msg:'출혈 위험 매우 높음', sub:'NSAIDs 절대 금기. 아세트아미노펜 단독 사용' });
+    else if (f.hasAspirin || f.hasPlavix) issues.push({ drug:'이부프로펜/케토롤락', condition:'항혈소판제', level:'warning', msg:'출혈 위험 증가', sub:'NSAIDs 병용 시 위장관 출혈 2–3배. 불가피 시 PPI 병용' });
+    if (f.hasHTN || f.hasHTNdrug) issues.push({ drug:'이부프로펜/케토롤락', condition:'고혈압', level:'warning', msg:'혈압 상승 가능', sub:'NSAIDs가 항고혈압제(ACE억제제·ARB) 효과 약화. 단기·저용량 사용' });
+    if (f.hasDM) issues.push({ drug:'이부프로펜/케토롤락', condition:'당뇨', level:'info', msg:'신기능 모니터링 권장', sub:'당뇨 환자는 신기능 저하 동반 가능. 단기 사용 후 경과 관찰' });
+  }
+
+  // ── 아세트아미노펜 교차 ──
+  if (hasAcetaminophen) {
+    if (f.hasLiver) issues.push({ drug:'아세트아미노펜', condition:'간경화', level:'warning', msg:'간독성 — 2g/일 이하', sub:'간경화 환자: 아세트아미노펜 최대 2g/일. 알코올 복용 시 더욱 주의' });
+    if (f.hasDialysis) issues.push({ drug:'아세트아미노펜', condition:'투석', level:'info', msg:'3g/일 이하 사용', sub:'투석 환자: 아세트아미노펜 허용, 하지만 3g/일 이하로 제한' });
+  }
+
+  // ── 메트로니다졸 교차 ──
+  if (hasMetronidazole) {
+    if (f.hasWarfarin) issues.push({ drug:'메트로니다졸', condition:'와파린', level:'danger', msg:'INR 2–3배 급상승 — 절대 금기', sub:'메트로니다졸이 와파린 대사 억제 → INR 위험 수준 상승. 클린다마이신으로 대체 필수' });
+    if (f.hasNOAC) issues.push({ drug:'메트로니다졸', condition:'NOAC', level:'warning', msg:'NOAC 혈중 농도 상승', sub:'일부 NOAC과 상호작용 가능. 클린다마이신 또는 아목시실린 대체 고려' });
+    if (f.hasLiver) issues.push({ drug:'메트로니다졸', condition:'간경화', level:'warning', msg:'간 대사 저하 — 용량 감량', sub:'간경화 시 메트로니다졸 반감기 연장. 250mg q12h로 감량, 짧은 기간 사용' });
+    if (f.hasDialysis) issues.push({ drug:'메트로니다졸', condition:'투석', level:'warning', msg:'투석 후 보충 투여 필요', sub:'투석 시 일부 제거됨. 투석 후 추가 투여 고려. 신장내과 확인' });
+  }
+
+  // ── 아목시실린 교차 ──
+  if (hasAmoxicillin) {
+    if (f.hasWarfarin) issues.push({ drug:'아목시실린', condition:'와파린', level:'warning', msg:'INR 소폭 영향 가능', sub:'아목시실린 복용 중 INR 소폭 변화 가능. 처방 후 INR 재확인 권장' });
+    if (f.hasCKD || f.hasDialysis) issues.push({ drug:'아목시실린', condition:'신장질환', level:'warning', msg:'용량 조절 필요', sub:'eGFR<30: 500mg q12h / 투석: 500mg 투석 직후. 일반 q8h 용법 금지' });
+    if (f.hasStatin) issues.push({ drug:'아목시실린', condition:'스타틴', level:'info', msg:'상호작용 없음 — 안전', sub:'아목시실린은 스타틴과 상호작용 없음. 1차 선택으로 적합' });
+  }
+
+  // ── 클린다마이신 교차 ──
+  if (hasClindamycin) {
+    if (f.hasWarfarin) issues.push({ drug:'클린다마이신', condition:'와파린', level:'warning', msg:'INR 소폭 영향 가능', sub:'INR 모니터링 권장. 메트로니다졸보다 안전한 대안' });
+    if (f.hasLiver) issues.push({ drug:'클린다마이신', condition:'간경화', level:'warning', msg:'간 대사 약물 — 주의', sub:'중증 간부전 시 용량 감량 고려. 위장관 부작용(C.diff) 위험 증가' });
+  }
+
+  // ── 덱사메타손 교차 ──
+  if (hasDexamethasone) {
+    if (f.hasDM) issues.push({ drug:'덱사메타손', condition:'당뇨', level:'warning', msg:'혈당 일시 상승', sub:'스테로이드 → 혈당 상승 (특히 2형 당뇨). 당일~익일 혈당 모니터링. 혈당 불량 시 최소화' });
+    if (f.hasImmunosupp) issues.push({ drug:'덱사메타손', condition:'면역억제', level:'warning', msg:'감염 위험 증가', sub:'면역억제제 + 스테로이드 = 감염 위험 상가. 최소 용량·단기간 사용' });
+    if (f.hasDialysis || f.hasCKD) issues.push({ drug:'덱사메타손', condition:'신장질환', level:'info', msg:'나트륨 저류·부종 주의', sub:'투석 환자: 체액 과부하 가능. 단회 투여 시 비교적 안전하나 반복 사용 주의' });
+    if (f.hasHF) issues.push({ drug:'덱사메타손', condition:'심부전', level:'warning', msg:'체액 저류 악화 가능', sub:'스테로이드 나트륨 저류 → 심부전 악화. 단회 사용 시 신중 결정' });
+    if (f.hasWarfarin) issues.push({ drug:'덱사메타손', condition:'와파린', level:'info', msg:'INR 소폭 영향 가능', sub:'단기 고용량 스테로이드 사용 시 INR 변화 보고됨. 모니터링 권장' });
+  }
+
+  // ── COX-2 억제제 ──
+  if (hasCOX2) {
+    if (f.hasWarfarin) issues.push({ drug:'셀레콕시브', condition:'와파린', level:'warning', msg:'INR 상승 가능', sub:'COX-2도 와파린 대사 영향. INR 모니터링 권장. NSAIDs보다 위장 안전하나 항응고 영향은 유사' });
+    if (f.hasCKD || f.hasDialysis) issues.push({ drug:'셀레콕시브', condition:'신장질환', level:'danger', msg:'COX-2도 신독성 — 금기', sub:'COX-2 억제제도 신혈류 감소. eGFR<30 금기. 아세트아미노펜으로 대체' });
+    if (f.hasHF) issues.push({ drug:'셀레콕시브', condition:'심부전', level:'warning', msg:'심혈관 위험 증가', sub:'COX-2 억제제: 심혈관 사건 위험 증가 보고. 심부전 환자 최소화' });
+  }
+
+  // ── 트라마돌 ──
+  if (hasTramadol) {
+    if (f.hasLiver) issues.push({ drug:'트라마돌', condition:'간경화', level:'danger', msg:'트라마돌 — 간 대사 저하, 뇌병증 위험', sub:'간경화 시 반감기 연장, 진정·혼수 위험. 코데인과 함께 금기. 아세트아미노펜으로 대체' });
+    if (f.hasDialysis || f.hasCKD) issues.push({ drug:'트라마돌', condition:'신장질환', level:'warning', msg:'트라마돌 축적 — 발작 위험', sub:'eGFR<30: 트라마돌 q12h 이상 간격. 투석 환자: 대사물 축적 → 발작 위험. 아세트아미노펜 우선' });
+    if (f.hasWarfarin) issues.push({ drug:'트라마돌', condition:'와파린', level:'warning', msg:'INR 소폭 상승 가능', sub:'트라마돌 + 와파린: INR 변화 보고. 처방 후 INR 재확인' });
+    if (f.hasHyperthyroid) issues.push({ drug:'트라마돌', condition:'갑상선항진', level:'warning', msg:'발작 역치 저하 주의', sub:'갑상선기능항진 + 트라마돌: 발작 위험 증가 가능. 최소 용량 사용' });
+  }
+
+  // ── 근이완제 ──
+  if (hasMuscleRelax) {
+    if (f.hasLiver) issues.push({ drug:'근이완제', condition:'간경화', level:'warning', msg:'간 대사 저하 — 진정 증가', sub:'클로르족사존·사이클로벤자프린: 간 대사. 간경화 시 효과 연장, 과진정 주의' });
+    if (f.hasDialysis || f.hasCKD) issues.push({ drug:'근이완제', condition:'신장질환', level:'warning', msg:'바클로펜 — 신장 배설, 용량 감량', sub:'바클로펜은 신장으로 배설. eGFR 감소 시 축적 → 의식 저하 위험. 에페리손은 비교적 안전' });
+    if (f.hasHF) issues.push({ drug:'근이완제', condition:'심부전', level:'info', msg:'저혈압 주의', sub:'근이완제 투여 후 기립성 저혈압 가능. 심부전 환자 천천히 일으켜 세우도록 안내' });
+  }
+
+  // ── 아지트로마이신 ──
+  if (hasAzithromycin) {
+    if (f.hasWarfarin) issues.push({ drug:'아지트로마이신', condition:'와파린', level:'warning', msg:'INR 상승 가능', sub:'아지트로마이신 + 와파린: INR 증가 보고. 복용 중 INR 모니터링 권장' });
+    if (f.hasAF || f.hasMI) issues.push({ drug:'아지트로마이신', condition:'심혈관', level:'warning', msg:'QT 연장 — 부정맥 위험', sub:'아지트로마이신: QT 간격 연장 가능. 심방세동·심근경색 환자 주의. 클린다마이신 또는 아목시실린 대체 고려' });
+    if (f.hasStatin) issues.push({ drug:'아지트로마이신', condition:'스타틴', level:'info', msg:'상호작용 미미 — 비교적 안전', sub:'아지트로마이신은 클라리스로마이신보다 스타틴 상호작용 적음' });
+  }
+
+  // ── 트라넥삼산 ──
+  if (hasTranexamic) {
+    if (f.hasCKD || f.hasDialysis) issues.push({ drug:'트라넥삼산', condition:'신장질환', level:'warning', msg:'신장 배설 — 용량 감량 필요', sub:'eGFR<60: 용량 감량. 투석 환자: 최소 용량 또는 금기. 축적 시 발작 위험' });
+  }
+
+  // ── 이상 없음 처리 ──
+  renderRxCheckResult(issues, drugKeys);
+}
+
+function renderRxCheckResult(issues, drugKeys) {
+  hideProgress();
+  const resultCard = document.getElementById('resultCard');
+  resultCard.classList.add('show');
+
+  // Update risk badge based on issues
+  const hasD = issues.some(i => i.level === 'danger');
+  const hasW = issues.some(i => i.level === 'warning');
+  const badge = document.getElementById('riskBadge');
+  const title = document.getElementById('riskTitle');
+  if (hasD) {
+    badge.className = 'risk-badge risk-high'; badge.textContent = '처방 금기';
+    title.textContent = '금기 약물 포함 — 처방 변경 필요';
+  } else if (hasW) {
+    badge.className = 'risk-badge risk-mid'; badge.textContent = '처방 주의';
+    title.textContent = '주의 필요 — 용량 조절 또는 대체 고려';
+  } else {
+    badge.className = 'risk-badge risk-low'; badge.textContent = '처방 가능';
+    title.textContent = '선택한 처방 세트 — 특이사항 없음';
+  }
+
+  // reason tags = selected set names
+  document.getElementById('reasonRow').innerHTML =
+    [...drugKeys.values()].map(d => '<span class="reason-tag reason-info">' + d + '</span>').join('');
+
+  // Hide proc-results in rx mode
+  document.getElementById('procResultsAll').style.display = 'none';
+  document.getElementById('statProcedure').textContent = '약처방';
+  document.getElementById('statProcedure').className = 'stat-value text-accent';
+  document.getElementById('statDrug').textContent = issues.length > 0 ? issues.length + '건 확인 필요' : '이상 없음';
+  document.getElementById('statDrug').className = 'stat-value ' + (hasD ? 'text-danger' : hasW ? 'text-warning' : 'text-success');
+
+  // Notes = issues
+  const list = document.getElementById('notesList');
+  if (issues.length === 0) {
+    list.innerHTML = '<div class="no-notes">✅ 선택한 처방 약물이 환자의 전신질환 및 복용약과 교차 확인 결과 특이사항이 없습니다.</div>';
+  } else {
+    list.innerHTML = issues.map(item => {
+      const dot = item.level === 'danger' ? 'dot-danger' : item.level === 'warning' ? 'dot-warning' : 'dot-info';
+      return '<div class="note-item"><div class="note-dot ' + dot + '"></div><div>' +
+        '<div><span style="font-size:11px;font-weight:600;color:var(--text-muted);margin-right:4px;">[' + item.drug + ' × ' + item.condition + ']</span>' +
+        '<span style="font-weight:600;' + (item.level==='danger'?'color:var(--danger)':item.level==='warning'?'color:var(--warning)':'') + '">' + item.msg + '</span></div>' +
+        '<div class="note-sub">' + item.sub + '</div>' +
+        '</div></div>';
+    }).join('');
+  }
+
+  // Hide rx and ane sections
+  document.getElementById('rxSection').style.display = 'none';
+  document.getElementById('aneSection').style.display = 'none';
+  resultCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
 
 function selectProc(proc, el) {
   selectedProc = proc;
   document.querySelectorAll('.proc-btn').forEach(b => b.classList.remove('active'));
   el.classList.add('active');
+  const isRx = proc === '약처방';
+  document.getElementById('rxPanel').classList.toggle('active', isRx);
 }
 
 function switchTab(id, el) {
@@ -570,9 +826,8 @@ function analyze(rawText) {
   // ── 시술별 판단 ──
   const flags = { inr, plt, wbc, hba1c, egfr, bpSys, bpDia, bpCrisis, bpHigh, tsh, ft4, hasAspirin, hasPlavix, hasWarfarin, hasNOAC, hasDM, hasDMdrug, hasHTN, hasHTNdrug, hasHF, hasHFdrug, hasAF, hasAFdrug, hasStent, hasMI, hasCKD, hasCKDdrug, hasDialysis, hasKidneyTx, hasLiver, hasBP, hasDenosumab, hasSunitinib, hasMRONJ, hasOsteo, hasRadiation, hasORN, hasImmunosupp, hasChemo, hasHyperthyroid, hasHypothyroid, hasThyroidDrug, hasStatin };
   const procJudge = {
-    '발치':     judgeExtraction(flags),
-    '임플란트': judgeImplant(flags),
-    '일반치료': judgeRoutine(flags),
+    '발치임플란트': judgeSurgical(flags),
+    '약처방':       judgePrescription(flags),
   };
 
   // ── 주의사항 노트 ──
@@ -580,57 +835,50 @@ function analyze(rawText) {
   const rxNotes = buildRx(flags);
   const aneNotes = buildAnesthesia(flags);
 
+  window._lastFlags = flags;
   renderResult(bleedRisk, drugAdj, procJudge, reasons, notes, rxNotes, aneNotes);
 }
 
-function judgeExtraction(f) {
-  const { inr, plt, wbc, hasWarfarin, hasNOAC, hasAspirin, hasPlavix, hasLiver, hasCKD, hasDialysis, hasKidneyTx, hasRadiation, hasORN, hasMRONJ, hasBP, hasDenosumab, hasSunitinib, hasChemo, hasImmunosupp, hasHF, bpCrisis, hasHyperthyroid } = f;
+function judgeSurgical(f) {
+  const { inr, plt, wbc, hasWarfarin, hasNOAC, hasAspirin, hasPlavix, hasLiver,
+          hasCKD, hasDialysis, hasKidneyTx, hasRadiation, hasORN, hasMRONJ,
+          hasBP, hasDenosumab, hasSunitinib, hasChemo, hasImmunosupp, hasHF,
+          bpCrisis, hasHyperthyroid, hasOsteo, hasDM, hba1c } = f;
+  // 혈압 위기
   if (bpCrisis) return { v: 'defer', msg: '혈압 위기 — 시술 금지' };
-  if (hasHyperthyroid) return { v: 'caution', msg: '갑상선항진 — 에피네프린 주의' };
-  // 절대 금기
+  // 골괴사 기왕력
   if (hasORN || hasMRONJ) return { v: 'defer', msg: 'ORN/MRONJ — 전문의 의뢰' };
-  if (hasRadiation) return { v: 'defer', msg: 'ORNI 위험 — 원칙적 금기' };
-  if ((inr && inr > 3.5) || (plt && plt < 50000) || hasLiver || hasChemo)
+  if (hasRadiation) return { v: 'defer', msg: 'ORN 위험 — 원칙적 금기' };
+  // 항암
+  if (hasChemo) return { v: 'defer', msg: '항암 중 — 연기' };
+  // 출혈 고위험
+  if ((inr && inr > 3.5) || (plt && plt < 50000) || hasLiver)
     return { v: 'defer', msg: '시술 연기' };
   if (hasDialysis) return { v: 'caution', msg: '투석 후 시술 권장' };
-  // 주의
+  // MRONJ 약물
+  if (hasBP || hasDenosumab || hasSunitinib) return { v: 'caution', msg: 'MRONJ 위험 고지 필수' };
+  // 중등도 위험
   if ((inr && inr > 3.0) || (plt && plt < 100000) || (wbc && wbc < 2000))
     return { v: 'caution', msg: '주의 후 가능' };
   if (hasWarfarin || hasNOAC) return { v: 'caution', msg: '약물 조절 후 가능' };
   if (hasAspirin && hasPlavix) return { v: 'caution', msg: '협진 후 결정' };
-  if (hasBP || hasDenosumab || hasSunitinib) return { v: 'caution', msg: 'MRONJ 위험 고지 필수' };
   if (hasCKD || hasKidneyTx || hasHF || hasImmunosupp) return { v: 'caution', msg: '주의 후 가능' };
+  if (hasHyperthyroid) return { v: 'caution', msg: '에피네프린 주의' };
+  if (hasDM && hba1c && hba1c > 9) return { v: 'caution', msg: 'HbA1c 높음 — 조절 후' };
   return { v: 'ok', msg: '가능' };
 }
 
-function judgeImplant(f) {
-  const { inr, plt, wbc, hasWarfarin, hasNOAC, hasAspirin, hasPlavix, hasLiver, hasCKD, hasDialysis, hasKidneyTx, hasRadiation, hasORN, hasMRONJ, hasBP, hasDenosumab, hasSunitinib, hasChemo, hasImmunosupp, hasOsteo, hasDM, hba1c, hasHF, bpCrisis } = f;
-  if (bpCrisis) return { v: 'defer', msg: '혈압 위기 — 시술 금지' };
-  // 절대 금기
-  if (hasORN || hasMRONJ) return { v: 'defer', msg: 'MRONJ/ORN — 절대 금기' };
-  if (hasRadiation) return { v: 'defer', msg: 'ORNI 위험 — 절대 금기' };
-  if (hasBP || hasDenosumab || hasSunitinib) return { v: 'defer', msg: 'MRONJ 고위험 — 연기' };
-  if (hasChemo) return { v: 'defer', msg: '항암 중 — 연기' };
-  if ((inr && inr > 3.0) || (plt && plt < 100000) || (wbc && wbc < 2000) || hasLiver)
-    return { v: 'defer', msg: '시술 연기' };
-  if (hasDialysis) return { v: 'defer', msg: '투석 환자 — 연기 권장' };
-  // 주의
-  if (hasImmunosupp || hasKidneyTx) return { v: 'caution', msg: '면역 억제 — 신중 결정' };
-  if (hasWarfarin || hasNOAC || (hasAspirin && hasPlavix)) return { v: 'caution', msg: '약물 조절 후 조건부' };
-  if (hasCKD) return { v: 'caution', msg: 'CKD — 골질·출혈 평가 필요' };
-  if (hasHF) return { v: 'caution', msg: '심부전 — 마취 위험 평가' };
-  if (hasDM && hba1c && hba1c > 9) return { v: 'caution', msg: 'HbA1c 높음 — 혈당 조절 후' };
-  if (hasOsteo) return { v: 'caution', msg: '골밀도 평가 필요' };
-  return { v: 'ok', msg: '가능' };
-}
 
-function judgeRoutine(f) {
-  const { inr, plt, wbc, hasLiver, hasCKD, hasDialysis, hasChemo, hasImmunosupp, hasHTN, bpCrisis } = f;
-  if (bpCrisis) return { v: 'caution', msg: '혈압 조절 후 진행' };
-  if (hasChemo || (wbc && wbc < 1500)) return { v: 'caution', msg: '감염 위험 — 항생제 고려' };
-  if (hasLiver || hasDialysis) return { v: 'caution', msg: '지혈·감염 주의' };
-  if ((inr && inr > 3.5) || (plt && plt < 50000)) return { v: 'caution', msg: '지혈 주의' };
-  return { v: 'ok', msg: '가능' };
+function judgePrescription(f) {
+  const { hasWarfarin, hasNOAC, hasAspirin, hasPlavix, hasDM, hasCKD, hasDialysis, hasKidneyTx, hasLiver, hasChemo, hasImmunosupp, hasHyperthyroid, hasHypothyroid, hasStatin, hasHTN, hasHTNdrug, hasHFdrug, hasHF, bpCrisis } = f;
+  // 금기 약물 조합 여부
+  const hasDrugInteraction = (hasWarfarin && (hasStatin)) || hasChemo;
+  const hasRenalCaution = hasDialysis || hasKidneyTx || hasCKD;
+  const hasHepaticCaution = hasLiver;
+  if (hasDialysis || hasLiver) return { v: 'caution', msg: '용량 조절 필요' };
+  if (hasDrugInteraction || hasImmunosupp || hasRenalCaution) return { v: 'caution', msg: '주의 처방 필요' };
+  if (hasWarfarin || hasNOAC) return { v: 'caution', msg: '상호작용 확인' };
+  return { v: 'ok', msg: '일반 처방 가능' };
 }
 
 function buildNotes(f) {
@@ -726,68 +974,94 @@ function buildNotes(f) {
 }
 
 function buildRx(f) {
-  const { inr, hasWarfarin, hasNOAC, hasAspirin, hasPlavix, hasDM, hasCKD, hasDialysis, hasKidneyTx, hasLiver, hasChemo, hasImmunosupp, hasHF, hasHTN, hasHTNdrug, wbc, hasHyperthyroid, hasHypothyroid, hasThyroidDrug, hasStatin, bpCrisis } = f;
+  const { inr, plt, wbc, hasWarfarin, hasNOAC, hasAspirin, hasPlavix, hasDM, hasDMdrug,
+          hasCKD, hasDialysis, hasKidneyTx, hasLiver, hasChemo, hasImmunosupp,
+          hasHF, hasHTN, hasHTNdrug, hasHFdrug, wbc: _w, hasHyperthyroid, hasHypothyroid,
+          hasThyroidDrug, hasStatin, bpCrisis, hasStent, hasMI, hasAF } = f;
   const rx = [];
 
-  // 진통제
-  const nsaidsOk = !hasCKD && !hasDialysis && !hasKidneyTx && !hasLiver;
-  if (hasCKD || hasDialysis || hasKidneyTx) {
-    rx.push({ cat: '진통제', text: 'NSAIDs (이부프로펜·케토롤락) 금기', sub: '아세트아미노펜(타이레놀) 우선 선택. 신기능 저하 환자는 아세트아미노펜도 3g/일 이하로 제한', level: 'danger' });
+  // ── 1. 진통제 ──
+  if (hasDialysis) {
+    rx.push({ cat: '진통제', text: 'NSAIDs 금기 — 아세트아미노펜 우선', sub: '투석 환자: 이부프로펜·케토롤락 금기. 아세트아미노펜 500mg 1일 3회(최대 2g/일)', level: 'danger' });
+  } else if (hasKidneyTx || hasCKD) {
+    rx.push({ cat: '진통제', text: 'NSAIDs 금기 또는 최소화 — 아세트아미노펜 우선', sub: 'eGFR<30: NSAIDs 절대 금기. eGFR 30–60: 단기 저용량 신중 사용. 아세트아미노펜 3g/일 이하', level: 'danger' });
   } else if (hasLiver) {
-    rx.push({ cat: '진통제', text: 'NSAIDs 주의, 아세트아미노펜 감량 사용', sub: '간경화 시 아세트아미노펜 2g/일 이하. 케토롤락 등 COX 억제제는 간 혈류 감소 위험', level: 'warning' });
+    rx.push({ cat: '진통제', text: 'NSAIDs 주의 — 아세트아미노펜 감량 사용', sub: '간경화: 아세트아미노펜 2g/일 이하. 케토롤락 등 COX 억제제 간 혈류 감소 위험', level: 'warning' });
   } else if (hasHF) {
-    rx.push({ cat: '진통제', text: 'NSAIDs 심부전 악화 위험 — 사용 최소화', sub: '나트륨 저류·부종 악화 가능. 아세트아미노펜 우선, 단기 저용량 NSAIDs 불가피 시 주치의 확인', level: 'warning' });
+    rx.push({ cat: '진통제', text: 'NSAIDs — 심부전 악화 위험, 최소화', sub: '나트륨 저류·부종 악화 가능. 아세트아미노펜 우선. 단기 불가피 시 주치의 확인', level: 'warning' });
+  } else if (hasHTN || hasHTNdrug) {
+    rx.push({ cat: '진통제', text: 'NSAIDs — 혈압 상승 가능', sub: 'NSAIDs가 항고혈압제 효과 약화. 특히 ACE억제제(라미프릴 등) 병용 시 신기능 악화. 아세트아미노펜 우선', level: 'warning' });
   } else {
     rx.push({ cat: '진통제', text: '아세트아미노펜 또는 단기 NSAIDs 처방 가능', sub: '이부프로펜 400mg × 3회, 5일 이내. 위장 보호제 병용 권장', level: 'info' });
   }
 
-  // 항생제
-  const abxNeeded = hasImmunosupp || hasChemo || hasDialysis || hasKidneyTx || (wbc !== null && wbc < 2000);
+  // ── 2. 항생제 ──
   if (hasDialysis) {
-    rx.push({ cat: '항생제', text: '아목시실린 용량 조절 필요 (투석 환자)', sub: '아목시실린 250–500mg 1일 1회 (투석 후). 클린다마이신: 일반 용량 가능하나 중증 감염 시 신장 전문의 확인', level: 'warning' });
+    rx.push({ cat: '항생제', text: '아목시실린 용량 조절 — 투석 후 1회', sub: '아목시실린 250–500mg 투석 직후 투여. 클린다마이신: 일반 용량 가능', level: 'warning' });
   } else if (hasCKD || hasKidneyTx) {
-    rx.push({ cat: '항생제', text: '아목시실린 감량 또는 간격 연장 고려', sub: 'eGFR 10–30: 500mg q12h / eGFR <10: 500mg q24h. 메트로니다졸은 일반 용량 가능', level: 'warning' });
-  } else if (abxNeeded) {
-    rx.push({ cat: '항생제', text: '예방적 항생제 적극 고려', sub: '아목시실린 2g 시술 1시간 전 (또는 클린다마이신 600mg 페니실린 알레르기 시)', level: 'warning' });
+    rx.push({ cat: '항생제', text: '아목시실린 감량 또는 간격 연장', sub: 'eGFR 10–30: 500mg q12h / eGFR<10: 500mg q24h. 메트로니다졸은 일반 용량 가능', level: 'warning' });
+  } else if (hasImmunosupp || hasChemo || (wbc !== null && wbc < 2000)) {
+    rx.push({ cat: '항생제', text: '예방적 항생제 적극 고려 — 감염 고위험', sub: '아목시실린 2g 시술 1시간 전. 페니실린 알레르기: 클린다마이신 600mg', level: 'warning' });
   } else {
     rx.push({ cat: '항생제', text: '일반 처방 가능 (적응증에 따라)', sub: '아목시실린 500mg × 3회 × 5일 또는 클린다마이신 300mg × 3회', level: 'info' });
   }
 
-  // 스테로이드 (술후 부종 억제)
-  if (hasDialysis || hasCKD) {
-    rx.push({ cat: '스테로이드', text: '덱사메타손 처방 시 신중 — 면역 저하·감염 위험', sub: '필요 시 최소 용량 단기간 사용. 전신 투여 보다 국소 적용 우선', level: 'warning' });
-  } else if (hasDM) {
-    rx.push({ cat: '스테로이드', text: '덱사메타손 사용 시 혈당 상승 주의', sub: '임플란트 후 부종 억제 목적 사용 시 당일~익일 혈당 모니터링 권장', level: 'warning' });
-  }
-
-  // 와파린 상호작용
+  // ── 3. 항생제 × 항응고제 상호작용 (핵심) ──
   if (hasWarfarin) {
-    rx.push({ cat: '약물상호작용', text: '와파린 복용 환자 — 항생제·진통제 상호작용 주의', sub: '메트로니다졸·플루코나졸: INR 현저히 상승 → 가급적 회피\n아목시실린: INR 소폭 영향 가능 → 복용 후 INR 재확인 권장\nNSAIDs: 출혈 위험 상가 → 아세트아미노펜으로 대체', level: 'danger' });
+    rx.push({ cat: '⚠️ 항생제 금기', text: '와파린 복용 — 메트로니다졸·플루코나졸 금기', sub: '메트로니다졸: INR 2–3배 급상승 위험 → 절대 회피\n클라리스로마이신: INR 소폭 상승\n아목시실린: INR 소폭 영향 → 복용 후 INR 재확인 권장\n→ 1차 선택: 아목시실린 또는 클린다마이신', level: 'danger' });
   }
   if (hasNOAC) {
-    rx.push({ cat: '약물상호작용', text: 'NOAC 복용 환자 — 일부 항생제 혈중농도 영향', sub: '클라리스로마이신·플루코나졸: NOAC 혈중 농도 상승 → 사용 주의\n아목시실린·클린다마이신: 비교적 안전', level: 'warning' });
+    rx.push({ cat: '⚠️ 항생제 주의', text: 'NOAC 복용 — 일부 항생제 혈중 농도 상승', sub: '클라리스로마이신·플루코나졸: NOAC 농도 상승 (출혈 위험)\n→ 1차 선택: 아목시실린 또는 클린다마이신 (비교적 안전)', level: 'warning' });
   }
 
-  // 간경화
+  // ── 4. 진통제 × 항응고제 ──
+  if (hasWarfarin || hasNOAC) {
+    rx.push({ cat: '⚠️ 진통제 금기', text: 'NSAIDs — 항응고제 출혈 위험 상가', sub: 'NSAIDs + 항응고제 = 위장관 출혈 위험 현저히 증가\n→ 아세트아미노펜으로 반드시 대체\n코데인·트라마돌: 와파린 INR 영향 가능, 주의 사용', level: 'danger' });
+  }
+  if (hasAspirin && hasPlavix) {
+    rx.push({ cat: '⚠️ 진통제 주의', text: '이중 항혈소판 + NSAIDs — 출혈 위험 매우 높음', sub: 'NSAIDs 절대 금기. 아세트아미노펜 단독 사용', level: 'danger' });
+  } else if (hasAspirin || hasPlavix) {
+    rx.push({ cat: '진통제 주의', text: '항혈소판제 복용 — NSAIDs 병용 주의', sub: 'NSAIDs 병용 시 위장관 출혈 위험 2–3배 증가. 불가피 시 PPI 병용', level: 'warning' });
+  }
+
+  // ── 5. 스테로이드 (술후 부종) ──
+  if (hasDM) {
+    rx.push({ cat: '스테로이드', text: '덱사메타손 처방 시 혈당 상승 주의', sub: '당일~익일 혈당 모니터링 권장. 혈당 조절 불량 시 사용 최소화', level: 'warning' });
+  } else if (hasDialysis || hasCKD) {
+    rx.push({ cat: '스테로이드', text: '덱사메타손 — 면역 저하 환자 감염 위험', sub: '최소 용량 단기 사용. 전신보다 국소 적용 우선', level: 'warning' });
+  } else {
+    rx.push({ cat: '스테로이드', text: '덱사메타손 일반 처방 가능', sub: '술후 부종 억제: 8mg 시술 전 1회 또는 4mg × 2회', level: 'info' });
+  }
+
+  // ── 6. 간 대사 주의 ──
   if (hasLiver) {
-    rx.push({ cat: '약물대사', text: '간경화 — 간 대사 약물 축적 위험', sub: '코데인·트라마돌 금기 (뇌병증 위험). 벤조디아제핀 최소화. 아세트아미노펜 2g/일 이하', level: 'danger' });
+    rx.push({ cat: '⚠️ 약물 대사', text: '간경화 — 간 대사 약물 금기/감량', sub: '코데인·트라마돌 금기 (간성 뇌병증 위험)\n벤조디아제핀 최소화\n아세트아미노펜 2g/일 이하\n모든 약물 최소 유효 용량 원칙', level: 'danger' });
   }
 
-  // 갑상선
+  // ── 7. 갑상선 ──
   if (hasHyperthyroid) {
-    rx.push({ cat: '갑상선 항진', text: '항갑상선제 복용 중 — 골수 억제 가능성 (agranulocytosis)', sub: 'PTU·메티마졸 복용 환자: WBC 감소 가능. 발치 전 WBC 확인 권장\n항생제 처방 시 감염 징후 면밀히 관찰', level: 'warning' });
+    rx.push({ cat: '갑상선 항진', text: '항갑상선제 복용 — WBC 감소(무과립구증) 가능', sub: 'PTU·메티마졸: 골수 억제 부작용 가능. 발치 전 WBC 확인 권장\n감염 징후(발열·인후통) 발생 시 즉각 혈액검사', level: 'warning' });
   }
   if (hasHypothyroid) {
-    rx.push({ cat: '갑상선 저하', text: '갑상선 호르몬제 복용 환자 — 일부 약물 흡수 영향', sub: '항생제(특히 칼슘 제제 동반 시) 레보티록신 흡수 방해 가능\n진통제·진정제 효과 증강 경향 — 용량 보수적으로', level: 'info' });
+    rx.push({ cat: '갑상선 저하', text: '레보티록신 복용 — 항생제 흡수 방해 가능', sub: '항생제(특히 칼슘 제제 포함 시) 레보티록신 흡수 저하 가능\n복용 간격 2시간 이상 유지 권장\n진통제·진정제 효과 증강 경향 — 보수적 용량', level: 'info' });
   }
 
-  // 혈압약 복용 환자
-  if (hasHTNdrug || hasHTN) {
-    rx.push({ cat: '혈압약 상호작용', text: '고혈압 약물 복용 — NSAIDs 혈압 상승 가능', sub: 'NSAIDs가 항고혈압제 효과를 약화시킬 수 있음\n특히 ACE억제제(라미프릴 등) + NSAIDs: 신기능 악화 가능\n아세트아미노펜 우선 처방 권장', level: 'warning' });
+  // ── 8. 스타틴 상호작용 ──
+  if (hasStatin) {
+    rx.push({ cat: '스타틴 상호작용', text: '스타틴 복용 — 일부 항생제 병용 주의', sub: '클라리스로마이신·에리트로마이신: 스타틴 혈중 농도 상승 → 근육독성(횡문근융해) 위험\n→ 아목시실린 또는 클린다마이신 선택 권장', level: 'warning' });
+  }
+
+  // ── 9. 심혈관 약물 ──
+  if (hasStent || hasMI) {
+    rx.push({ cat: '심혈관', text: '항혈소판제 — 임의 중단 절대 금지', sub: '진통제·항생제 처방 시 항혈소판제 중단 지시 절대 금지\n출혈 위험보다 혈전 위험이 훨씬 크므로 유지', level: 'danger' });
+  }
+  if (hasAF && (hasWarfarin || hasNOAC)) {
+    rx.push({ cat: '심방세동', text: '항응고제 복용 중 — 처방 전 INR/NOAC 종류 확인', sub: '모든 신규 약물 처방 시 항응고제 상호작용 우선 확인', level: 'warning' });
   }
 
   return rx;
 }
+
 
 function buildAnesthesia(f) {
   const { hasHTN, hasHTNdrug, hasHF, hasMI, hasStent, hasAF, hasDM, hasCKD, hasDialysis, hasKidneyTx, hasLiver, hasChemo, hasImmunosupp, hasAspirin, hasPlavix, hasWarfarin, hasNOAC, inr, bpSys, bpDia, bpCrisis, bpHigh, hasHyperthyroid, hasHypothyroid, tsh } = f;
@@ -871,10 +1145,12 @@ function renderResult(bleedRisk, drugAdj, procJudge, reasons, notes, rxNotes, an
   ).join('');
 
   // 시술별 판단
-  const verdictLabel = { ok: '가능', caution: '주의', defer: '연기' };
   const verdictCls   = { ok: 'verdict-ok', caution: 'verdict-caution', defer: 'verdict-defer' };
   const highlightCls = { ok: 'highlight-ok', caution: 'highlight-caution', defer: 'highlight-defer' };
-  ['발치', '임플란트', '일반치료'].forEach(p => {
+  const isSurgical = selectedProc === '발치임플란트';
+  const isPrescription = selectedProc === '약처방';
+
+  ['발치임플란트', '약처방'].forEach(p => {
     const j = procJudge[p];
     document.getElementById('pv-' + p).textContent = j.msg;
     document.getElementById('pv-' + p).className = 'proc-result-verdict ' + verdictCls[j.v];
@@ -888,8 +1164,20 @@ function renderResult(bleedRisk, drugAdj, procJudge, reasons, notes, rxNotes, an
   // 선택 시술 표시
   const selJ = procJudge[selectedProc];
   const procEl = document.getElementById('statProcedure');
-  procEl.textContent = selectedProc + ' — ' + selJ.msg;
+  procEl.textContent = (selectedProc === '발치임플란트' ? '발치 / 임플란트' : selectedProc) + ' — ' + selJ.msg;
   procEl.className = 'stat-value ' + (selJ.v === 'ok' ? 'text-success' : selJ.v === 'defer' ? 'text-danger' : 'text-warning');
+
+  // 마취 섹션: 외과 시술 선택 시에만 표시
+  document.getElementById('aneSection').style.display = isSurgical ? '' : 'none';
+  // 처방 섹션: 항상 표시 (약처방 선택 시 더 강조)
+  const rxSec = document.getElementById('rxSection');
+  if (isPrescription) {
+    rxSec.style.borderTop = '2px solid var(--accent)';
+    rxSec.querySelector('.notes-label').style.color = 'var(--accent)';
+  } else {
+    rxSec.style.borderTop = '';
+    if (rxSec.querySelector('.notes-label')) rxSec.querySelector('.notes-label').style.color = '';
+  }
 
   const drugEl = document.getElementById('statDrug');
   drugEl.textContent = drugAdj;
@@ -1042,6 +1330,11 @@ function capture() {
 }
 
 function resetResult() {
+  // Reset rx drug selections
+  selectedDrugs.clear();
+  document.querySelectorAll('.rx-chip').forEach(b => b.classList.remove('selected'));
+  updateRxDrugTags();
+  document.getElementById('procResultsAll').style.display = '';
   document.getElementById('resultCard').classList.remove('show');
   document.getElementById('textInput').value = '';
   document.getElementById('fileInput').value = '';
